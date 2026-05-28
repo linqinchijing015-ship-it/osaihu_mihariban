@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}osaihu_mihariban{% endblock %}</title>
+
+  <!-- Bootstrap 5 CSS CDN — npm や build pipeline は不要 -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+</head>
+<body>
+
+  <!-- ナビバー -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <!-- サイト名 -->
+      <a class="navbar-brand" href="{% url 'expenses:list' %}">お財布見張り番</a>
+
+      <div class="navbar-nav ms-auto">
+        <!-- 支出一覧リンク -->
+        <a class="nav-link" href="{% url 'expenses:list' %}">支出一覧</a>
+        <!-- 管理画面リンク -->
+        <a class="nav-link" href="/admin/">管理画面</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- メインコンテンツ領域 -->
+  <div class="container py-4">
+    {% block content %}{% endblock %}
+  </div>
+
+  <!-- Bootstrap 5 JS bundle CDN（ドロップダウン等のインタラクションに使う） -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+  ></script>
+</body>
+</html>
