@@ -10,5 +10,16 @@ app_name = "expenses"
 urlpatterns = [
     # /expenses/ → 一覧画面（Tier 0）
     path("", views.ExpenseListView.as_view(), name="list"),
-    # Tier 1 で path("add/", ..., name="add") などをここに追加していく
+
+     # /expenses/add/ → 新規作成画面
+    # name="add" とすることで {% url 'expenses:add' %} で参照できる
+    path("add/", views.ExpenseCreateView.as_view(), name="add"),
+
+    # /expenses/1/edit/ → 編集画面
+    # <int:pk> は「整数のid」を受け取るという意味
+    # pkはprimary key（主キー）の略でDBのidと対応している
+    path("<int:pk>/edit/", views.ExpenseUpdateView.as_view(), name="edit"),
+
+    # /expenses/1/delete/ → 削除確認画面
+    path("<int:pk>/delete/", views.ExpenseDeleteView.as_view(), name="delete"),
 ]
