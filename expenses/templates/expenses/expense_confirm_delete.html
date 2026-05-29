@@ -1,0 +1,26 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}削除の確認 - osaihu_mihariban{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+
+    <h1 class="h4 mb-4">本当に削除しますか？</h1>
+
+    <!-- object は DeleteView が自動で渡してくれる変数 -->
+    <div class="alert alert-warning">
+      「{{ object.name }}」（{{ object.amount }}円）を削除します。
+    </div>
+
+    <form method="post" action="">
+      {% csrf_token %}
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">削除する</button>
+        <a href="{% url 'expenses:list' %}" class="btn btn-secondary">キャンセル</a>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

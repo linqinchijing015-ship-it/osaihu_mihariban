@@ -1,0 +1,58 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}
+  {% if form.instance.pk %}支出を編集{% else %}支出を登録{% endif %} - osaihu_mihariban
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+
+    <h1 class="h4 mb-4">
+      <!-- form.instance.pk があれば編集、なければ新規作成 -->
+      {% if form.instance.pk %}支出を編集{% else %}支出を登録{% endif %}
+    </h1>
+
+    <!-- action="" で現在のURLにPOST送信 -->
+    <!-- {% csrf_token %} はセキュリティのために必須 -->
+    <form method="post" action="">
+      {% csrf_token %}
+
+      <!-- 品名 -->
+      <div class="mb-3">
+        <label class="form-label">品名</label>
+        {{ form.name }}
+        <!-- バリデーションエラーがあれば表示 -->
+        {% if form.name.errors %}
+          <div class="text-danger">{{ form.name.errors }}</div>
+        {% endif %}
+      </div>
+
+      <!-- 金額 -->
+      <div class="mb-3">
+        <label class="form-label">金額（円）</label>
+        {{ form.amount }}
+        {% if form.amount.errors %}
+          <div class="text-danger">{{ form.amount.errors }}</div>
+        {% endif %}
+      </div>
+
+      <!-- カテゴリ -->
+      <div class="mb-3">
+        <label class="form-label">カテゴリ</label>
+        {{ form.category }}
+        {% if form.category.errors %}
+          <div class="text-danger">{{ form.category.errors }}</div>
+        {% endif %}
+      </div>
+
+      <!-- 送信ボタン -->
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">保存</button>
+        <a href="{% url 'expenses:list' %}" class="btn btn-secondary">キャンセル</a>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}
