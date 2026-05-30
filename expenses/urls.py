@@ -22,4 +22,10 @@ urlpatterns = [
 
     # /expenses/1/delete/ → 削除確認画面
     path("<int:pk>/delete/", views.ExpenseDeleteView.as_view(), name="delete"),
+
+    # 追加: 我慢した物のURLパターン,構成は上記と同じ
+    path("non/",                views.nonExpenseListView.as_view(),   name="non_list"),
+    path("non/add/",            views.nonExpenseCreateView.as_view(), name="non_add"),
+    path("non/<int:pk>/edit/",  views.nonExpenseUpdateView.as_view(), name="non_edit"),
+    path("non/<int:pk>/delete/",views.nonExpenseDeleteView.as_view(), name="non_delete"),
 ]
