@@ -4,8 +4,8 @@
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 
-from .models import Expense
-from .forms import ExpenseForm
+from .models import Expense, nonExpense
+from .forms import ExpenseForm, nonExpenseForm
 
 class ExpenseListView(ListView):
     """支出一覧を表示する View。
@@ -56,4 +56,34 @@ class ExpenseDeleteView(DeleteView):
     """
     model = Expense
     template_name = "expenses/expense_confirm_delete.html"
+    success_url = reverse_lazy("expenses:list")
+
+class nonExpenseListView(ListView):
+    """我慢した物の一覧を表示する View。構成は ExpenseListView と同じ。
+    """
+    model = nonExpense
+    template_name = "expenses/nonexpense_list.html"
+    context_object_name = "nonexpenses"
+
+class nonExpenseCreateView(CreateView):
+    """我慢した物を新規登録するView。構成は ExpenseCreateView と同じ。
+    """
+    model = nonExpense
+    form_class = nonExpenseForm
+    template_name = "expenses/nonexpense_form.html"
+    success_url = reverse_lazy("expenses:list")  # 保存後に一覧画面へ
+
+class nonExpenseUpdateView(UpdateView):
+    """我慢した物を編集するView。構成は ExpenseUpdateView と同じ。
+    """
+    model = nonExpense
+    form_class = nonExpenseForm
+    template_name = "expenses/nonexpense_form.html"
+    success_url = reverse_lazy("expenses:list")
+
+class nonExpenseDeleteView(DeleteView):
+    """我慢した物を削除するView。構成は ExpenseDeleteView と同じ。
+    """
+    model = nonExpense
+    template_name = "expenses/nonexpense_confirm_delete.html"
     success_url = reverse_lazy("expenses:list")
