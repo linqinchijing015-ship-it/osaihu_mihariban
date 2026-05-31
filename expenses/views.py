@@ -71,7 +71,7 @@ class nonExpenseCreateView(CreateView):
     model = nonExpense
     form_class = nonExpenseForm
     template_name = "expenses/nonexpense_form.html"
-    success_url = reverse_lazy("expenses:list")  # 保存後に一覧画面へ
+    success_url = reverse_lazy("expenses:non_list")  # 保存後に我慢ログ一覧へ
 
 class nonExpenseUpdateView(UpdateView):
     """我慢した物を編集するView。構成は ExpenseUpdateView と同じ。
@@ -79,11 +79,11 @@ class nonExpenseUpdateView(UpdateView):
     model = nonExpense
     form_class = nonExpenseForm
     template_name = "expenses/nonexpense_form.html"
-    success_url = reverse_lazy("expenses:list")
+    success_url = reverse_lazy("expenses:non_list")
 
 class nonExpenseDeleteView(DeleteView):
     """我慢した物を削除するView。構成は ExpenseDeleteView と同じ。
     """
     model = nonExpense
     template_name = "expenses/nonexpense_confirm_delete.html"
-    success_url = reverse_lazy("expenses:list")
+    success_url = reverse_lazy("expenses:non_list")

@@ -5,9 +5,9 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1 class="h4 mb-0">支出一覧 <small class="text-muted fs-6">全 {{ expenses|length }} 件</small></h1>
-  </div>
-  <a href="{% url 'expenses:add' %}" class="btn btn-primary">＋ 支出を登録</a>
-  <a href="{% url 'expenses:non_add' %}" class="btn btn-success">我慢した物を登録</a>
+  <div class="d-flex gap-2">
+    <a href="{% url 'expenses:add' %}" class="btn btn-primary">＋ 支出を登録</a>
+    <a href="{% url 'expenses:non_add' %}" class="btn btn-success">我慢した物を登録</a>
   </div>
 </div>
 
