@@ -7,6 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.views.generic import CreateView
+from django.db.models import Sum
 
 from .models import Expense, nonExpense
 from .forms import ExpenseForm, nonExpenseForm
@@ -24,6 +25,13 @@ class ExpenseListView(LoginRequiredMixin, ListView):
     template_name = "expenses/expense_list.html"
     # テンプレート内で {{ expenses }} として参照できる
     context_object_name = "expenses"
+
+    def get_context_data(self, **kwargs):
+        # 上部の集計バー用に「合計金額」を渡す（件数はテンプレート側で |length）
+        context = super().get_context_data(**kwargs)
+        # Sum は該当行が0件のとき None を返すので、その場合は 0 にそろえる
+        context["total_amount"] = self.get_queryset().aggregate(total=Sum("amount"))["total"] or 0
+        return context
 
 class ExpenseCreateView(LoginRequiredMixin, CreateView):
     """支出を新規登録するView。
@@ -68,6 +76,12 @@ class nonExpenseListView(LoginRequiredMixin, ListView):
     model = nonExpense
     template_name = "expenses/nonexpense_list.html"
     context_object_name = "nonexpenses"
+
+    def get_context_data(self, **kwargs):
+        # 上部の集計バー用に「我慢して浮いた合計金額」を渡す
+        context = super().get_context_data(**kwargs)
+        context["total_amount"] = self.get_queryset().aggregate(total=Sum("amount"))["total"] or 0
+        return context
 
 class nonExpenseCreateView(LoginRequiredMixin, CreateView):
     """我慢した物を新規登録するView。構成は ExpenseCreateView と同じ。
