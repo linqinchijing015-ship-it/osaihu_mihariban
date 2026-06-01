@@ -10,6 +10,48 @@
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
     rel="stylesheet"
   >
+
+  <!--
+    一覧画面（買ったもの／我慢したもの）のタブ・集計・カードのスタイル。
+    モックA（ui-mock-A-tabs.html）準拠。色は 青=買った / 緑=我慢 で統一。
+  -->
+  <style>
+    body { background: #f4f6fa; }
+    .page-wrap { max-width: 680px; margin: 0 auto; }
+
+    /* セグメントタブ：今どっちを見ているか＋切替を兼ねる（中身は2URLへのリンク） */
+    .seg { display: flex; background: #e8edf5; border-radius: 14px; padding: 5px; margin-bottom: 18px; }
+    .seg a { flex: 1; text-align: center; padding: 11px 0; border-radius: 10px; text-decoration: none;
+      font-weight: 600; font-size: 15px; color: #5b6b82; transition: .15s; }
+    .seg a.active { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .seg a.active.buy { color: #2563eb; }   /* 買ったもの = 青 */
+    .seg a.active.save { color: #16a34a; }  /* 我慢したもの = 緑 */
+    .seg a .cnt { display: block; font-size: 11px; font-weight: 500; opacity: .7; margin-top: 1px; }
+
+    /* 集計サマリ */
+    .summary { display: flex; gap: 12px; margin-bottom: 16px; }
+    .summary .box { flex: 1; background: #fff; border-radius: 12px; padding: 13px 16px; }
+    .summary .lbl { font-size: 12px; color: #8a97a8; }
+    .summary .val { font-size: 20px; font-weight: 700; color: #1a2332; }
+    .summary .val small { font-size: 13px; font-weight: 600; color: #8a97a8; }
+
+    /* 主アクション（記録ボタン） */
+    .add-btn { display: block; width: 100%; text-align: center; padding: 14px; border-radius: 12px;
+      color: #fff; font-weight: 700; font-size: 16px; text-decoration: none; margin-bottom: 18px; }
+    .add-btn.buy { background: #2563eb; box-shadow: 0 2px 8px rgba(37,99,235,.25); }
+    .add-btn.save { background: #16a34a; box-shadow: 0 2px 8px rgba(22,163,74,.25); }
+
+    /* カード型リスト */
+    .item { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 12px; }
+    .item .cat { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: #eef2f7;
+      color: #5b6b82; white-space: nowrap; }
+    .item .name { flex: 1; font-weight: 600; color: #1a2332; }
+    .item .amt { font-weight: 700; color: #1a2332; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .item .acts a { font-size: 13px; color: #8a97a8; text-decoration: none; margin-left: 10px; }
+    .item .acts a.del { color: #dc2626; }
+    .hint { text-align: center; color: #8a97a8; font-size: 13px; margin-top: 4px; }
+  </style>
 </head>
 <body>
 
