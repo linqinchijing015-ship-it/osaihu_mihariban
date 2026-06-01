@@ -113,3 +113,15 @@ STATIC_URL = "static/"
 # Default primary key
 # ---------------------------------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ---------------------------------------------------------------------------
+# 認証設定
+# ---------------------------------------------------------------------------
+# ログイン成功後にリダイレクトするURL
+LOGIN_REDIRECT_URL = "/expenses/"
+
+# ログアウト後にリダイレクトするURL
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+# ログインしていないユーザーをリダイレクトするURL
+LOGIN_URL = "/accounts/login/"
