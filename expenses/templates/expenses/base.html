@@ -19,11 +19,24 @@
       <!-- サイト名 -->
       <a class="navbar-brand" href="{% url 'expenses:list' %}">お財布見張り番</a>
 
-      <div class="navbar-nav ms-auto">
+      <div class="navbar-nav ms-auto align-items-lg-center">
         <!-- 支出一覧リンク -->
         <a class="nav-link" href="{% url 'expenses:list' %}">支出一覧</a>
         <!-- 管理画面リンク -->
         <a class="nav-link" href="/admin/">管理画面</a>
+
+        {% if user.is_authenticated %}
+          <!-- ログイン中のユーザー名 -->
+          <span class="navbar-text ms-lg-2">{{ user.username }} さん</span>
+          <!--
+            ログアウト。Django 5 で LogoutView は POST 専用になったため、
+            <a href> ではなく <form method="post"> + ボタンで送信する。
+          -->
+          <form method="post" action="{% url 'logout' %}" class="d-inline ms-lg-2">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-light btn-sm">ログアウト</button>
+          </form>
+        {% endif %}
       </div>
     </div>
   </nav>
