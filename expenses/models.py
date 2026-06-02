@@ -16,6 +16,7 @@ class Expense(models.Model):
         User,
         on_delete=models.CASCADE,
         verbose_name="ユーザー",
+        null=True,
     )
 
     name = models.CharField(max_length=100, verbose_name="品名")
@@ -56,6 +57,7 @@ class nonExpense(models.Model):
         User,
         on_delete=models.CASCADE,
         verbose_name="ユーザー",
+        null=True,
     )
 
     name = models.CharField(max_length=100, verbose_name="品名")
