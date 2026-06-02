@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User  # 追加
 
 # models.py — 支出を表すモデルの定義
 class Expense(models.Model):
@@ -8,6 +9,15 @@ class Expense(models.Model):
         ("gadget",  "ガジェット・趣味"),
         ("luxury",  "嗜好品・課金・コンビニ"),
     ]
+
+    # ユーザーに紐付けるフィールドを追加
+    # on_delete=CASCADE → ユーザーが削除されたら支出データも削除
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="ユーザー",
+        null=True,
+    )
 
     name = models.CharField(max_length=100, verbose_name="品名")
     amount = models.PositiveIntegerField(verbose_name="金額（円）")
@@ -41,6 +51,14 @@ class nonExpense(models.Model):
         ("gadget",  "ガジェット・趣味"),
         ("luxury",  "嗜好品・課金・コンビニ"),
     ]
+
+    # ユーザーに紐付けるフィールドを追加
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="ユーザー",
+        null=True,
+    )
 
     name = models.CharField(max_length=100, verbose_name="品名")
     amount = models.PositiveIntegerField(verbose_name="金額（円）")
