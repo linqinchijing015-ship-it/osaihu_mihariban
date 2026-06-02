@@ -16,7 +16,6 @@ urlpatterns = [
     path("accounts/register/", RegisterView.as_view(), name="register"),
 
         # トップページ（/）にアクセスしたらログイン画面に飛ばす
-    path("", RedirectView.as_view(url="/accounts/login/")),
-
+    path("", RedirectView.as_view(url="/expenses/")),
   
 ]
