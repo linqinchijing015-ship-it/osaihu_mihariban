@@ -32,6 +32,10 @@ class ExpenseListView(LoginRequiredMixin, ListView):
         # Sum は該当行が0件のとき None を返すので、その場合は 0 にそろえる
         context["total_amount"] = self.get_queryset().aggregate(total=Sum("amount"))["total"] or 0
         return context
+    def get_queryset(self):
+        # self.request.user → 今ログインしているユーザー
+        # filter → そのユーザーのデータだけ取得
+        return Expense.objects.filter(user=self.request.user)
 
 class ExpenseCreateView(LoginRequiredMixin, CreateView):
     """支出を新規登録するView。
@@ -46,6 +50,12 @@ class ExpenseCreateView(LoginRequiredMixin, CreateView):
     template_name = "expenses/expense_form.html"
     success_url = reverse_lazy("expenses:list")  # 保存後に一覧画面へ
 
+    def form_valid(self, form):
+        # 保存前にユーザーを自動でセット
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
+
     
 class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
     """支出を編集するView。
@@ -59,6 +69,10 @@ class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "expenses/expense_form.html"
     success_url = reverse_lazy("expenses:list")
 
+    def get_queryset(self):
+        return Expense.objects.filter(user=self.request.user)
+
+
 class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
     """支出を削除するView。
     
@@ -69,6 +83,10 @@ class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
     model = Expense
     template_name = "expenses/expense_confirm_delete.html"
     success_url = reverse_lazy("expenses:list")
+
+    def get_queryset(self):
+        return Expense.objects.filter(user=self.request.user)
+
 
 class nonExpenseListView(LoginRequiredMixin, ListView):
     """我慢した物の一覧を表示する View。構成は ExpenseListView と同じ。
@@ -82,6 +100,9 @@ class nonExpenseListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["total_amount"] = self.get_queryset().aggregate(total=Sum("amount"))["total"] or 0
         return context
+    
+    def get_queryset(self):
+        return nonExpense.objects.filter(user=self.request.user)
 
 class nonExpenseCreateView(LoginRequiredMixin, CreateView):
     """我慢した物を新規登録するView。構成は ExpenseCreateView と同じ。
@@ -91,6 +112,10 @@ class nonExpenseCreateView(LoginRequiredMixin, CreateView):
     template_name = "expenses/nonexpense_form.html"
     success_url = reverse_lazy("expenses:non_list")  # 保存後に我慢ログ一覧へ
 
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
 class nonExpenseUpdateView(LoginRequiredMixin, UpdateView):
     """我慢した物を編集するView。構成は ExpenseUpdateView と同じ。
     """
@@ -99,12 +124,19 @@ class nonExpenseUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "expenses/nonexpense_form.html"
     success_url = reverse_lazy("expenses:non_list")
 
+    def get_queryset(self):
+        return nonExpense.objects.filter(user=self.request.user)
+
+
 class nonExpenseDeleteView(LoginRequiredMixin, DeleteView):
     """我慢した物を削除するView。構成は ExpenseDeleteView と同じ。
     """
     model = nonExpense
     template_name = "expenses/nonexpense_confirm_delete.html"
     success_url = reverse_lazy("expenses:non_list")
+
+    def get_queryset(self):
+        return nonExpense.objects.filter(user=self.request.user)
 
 class RegisterView(CreateView):
     """ユーザー登録View。
