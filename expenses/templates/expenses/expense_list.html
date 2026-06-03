@@ -3,48 +3,88 @@
 {% block title %}買ったもの - osaihu_mihariban{% endblock %}
 
 {% block content %}
-<div class="page-wrap">
+<div class="layout">
 
-  {# セグメントタブ：今は「買ったもの」がアクティブ。相手タブは我慢ログ画面へのリンク #}
-  <div class="seg">
-    <a href="{% url 'expenses:list' %}" class="active buy">
-      買ったもの<span class="cnt">{{ expenses|length }}件・{{ total_amount }}円</span>
-    </a>
-    <a href="{% url 'expenses:non_list' %}">
-      我慢したもの
-    </a>
+  {# 左カラム：操作（タブ＋主役ヒーロー＋対比＋記録ボタン＋リスト） #}
+  <div class="col-main">
+
+    {# セグメントタブ #}
+    <div class="seg">
+      <a href="{% url 'expenses:list' %}" class="active buy">買ったもの</a>
+      <a href="{% url 'expenses:non_list' %}">我慢したもの</a>
+    </div>
+
+    {# 主役ヒーロー：使った合計額。対比（我慢で浮いた額）と件数は sub に同居させ行数を抑える #}
+    <div class="hero buy">
+      <div class="lbl">🛍️ 今月、使った金額</div>
+      <div class="amount">{{ total_amount }}<small> 円</small></div>
+      <div class="sub">{{ expenses|length }}件 ・ 我慢で浮いた額 <b>{{ saved_amount }}円</b></div>
+    </div>
+
+    <a href="{% url 'expenses:add' %}" class="add-btn buy">＋ 買ったものを記録する</a>
+
+    {% if expenses %}
+      {# リスト型（1パネルに行を詰める）。1段組み・薄padding・ゼブラで密度最大化 #}
+      <div class="list">
+        {% for expense in expenses %}
+        <div class="item">
+          <span class="dot" style="background: {{ expense.category_color }}"></span>
+          <span class="name">{{ expense.name }}</span>
+          <span class="cat">{{ expense.get_category_display }}</span>
+          <span class="date">{{ expense.created_at|date:"n/j" }}</span>
+          <span class="amt">{{ expense.amount }}円</span>
+          <span class="acts">
+            <a href="{% url 'expenses:edit' expense.pk %}">編集</a>
+            <a href="{% url 'expenses:delete' expense.pk %}" class="del">削除</a>
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+
+    {% else %}
+      <div class="alert alert-info" role="alert">
+        まだ記録がありません。上の「＋ 買ったものを記録する」から追加してください。
+      </div>
+    {% endif %}
+
   </div>
 
-  {# 集計サマリ（このタブの内容） #}
-  <div class="summary">
-    <div class="box"><div class="lbl">支出の合計</div><div class="val">{{ total_amount }}<small> 円</small></div></div>
-    <div class="box"><div class="lbl">件数</div><div class="val">{{ expenses|length }}<small> 件</small></div></div>
+  {# 右カラム：カテゴリ別の円グラフ #}
+  <div class="col-graph">
+    <div class="graph-card">
+      <h2>何に使ったか（カテゴリ別）</h2>
+      {% if expenses %}
+        <canvas id="categoryChart" height="240"></canvas>
+      {% else %}
+        <p class="graph-empty">記録が増えると、ここに内訳の円グラフが出ます</p>
+      {% endif %}
+    </div>
   </div>
-
-  {# 主アクション：このタブで何ができるかが一目で分かる #}
-  <a href="{% url 'expenses:add' %}" class="add-btn buy">＋ 買ったものを記録する</a>
-
-  {% if expenses %}
-    {# カード型リスト #}
-    {% for expense in expenses %}
-    <div class="item">
-      <span class="cat">{{ expense.get_category_display }}</span>
-      <span class="name">{{ expense.name }}</span>
-      <span class="amt">{{ expense.amount }}円</span>
-      <span class="acts">
-        <a href="{% url 'expenses:edit' expense.pk %}">編集</a>
-        <a href="{% url 'expenses:delete' expense.pk %}" class="del">削除</a>
-      </span>
-    </div>
-    {% endfor %}
-
-    <p class="hint">「我慢したもの」タブに切り替えると、買わずに済んだ記録が見られます</p>
-
-  {% else %}
-    <div class="alert alert-info" role="alert">
-      まだ記録がありません。上の「＋ 買ったものを記録する」から追加してください。
-    </div>
-  {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if expenses %}
+<script>
+  // views.py が渡す JSON（ラベル・金額・カテゴリ固定色）を Chart.js に流し込む
+  const chartData = {{ chart_data|safe }};
+  new Chart(document.getElementById("categoryChart"), {
+    type: "doughnut",
+    data: {
+      labels: chartData.labels,
+      datasets: [{
+        data: chartData.values,
+        // 色はカテゴリ固定（models の CATEGORY_COLORS）。カードのドットと同じ色
+        backgroundColor: chartData.colors,
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      plugins: { legend: { position: "bottom", labels: { font: { size: 12 } } } },
+      cutout: "60%",
+    },
+  });
+</script>
+{% endif %}
 {% endblock %}

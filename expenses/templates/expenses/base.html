@@ -17,39 +17,91 @@
   -->
   <style>
     body { background: #f4f6fa; }
-    .page-wrap { max-width: 680px; margin: 0 auto; }
+
+    /*
+      2カラムレイアウト：左=操作（タブ＋集計＋リスト）／右=グラフ。
+      PC は横並び、スマホ（991px以下）は縦積み（左→右の順＝リストの下にグラフ…ではなく、
+      スマホでは「集計の全体像を先に見せる」ため col-graph を col-main の前に出す）。
+    */
+    .layout { max-width: 1040px; margin: 0 auto; display: grid; gap: 24px;
+      grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }
+    .col-graph { position: sticky; top: 16px; }  /* スクロールしても右に追従 */
+
+    @media (max-width: 991px) {
+      .layout { grid-template-columns: 1fr; }
+      /* スマホでは「タブ→集計→グラフ→リスト」の順に見せたいので、グラフを上に出す */
+      .col-graph { position: static; order: -1; }
+    }
+
+    /* グラフカード */
+    .graph-card { background: #fff; border-radius: 14px; padding: 18px 18px 8px; }
+    .graph-card h2 { font-size: 14px; font-weight: 700; color: #1a2332; margin: 0 0 10px; }
+    .graph-empty { color: #8a97a8; font-size: 13px; text-align: center; padding: 24px 0; }
 
     /* セグメントタブ：今どっちを見ているか＋切替を兼ねる（中身は2URLへのリンク） */
-    .seg { display: flex; background: #e8edf5; border-radius: 14px; padding: 5px; margin-bottom: 18px; }
-    .seg a { flex: 1; text-align: center; padding: 11px 0; border-radius: 10px; text-decoration: none;
-      font-weight: 600; font-size: 15px; color: #5b6b82; transition: .15s; }
+    .seg { display: flex; background: #e8edf5; border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+    .seg a { flex: 1; text-align: center; padding: 9px 0; border-radius: 9px; text-decoration: none;
+      font-weight: 600; font-size: 14px; color: #5b6b82; transition: .15s; }
     .seg a.active { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
     .seg a.active.buy { color: #2563eb; }   /* 買ったもの = 青 */
     .seg a.active.save { color: #16a34a; }  /* 我慢したもの = 緑 */
     .seg a .cnt { display: block; font-size: 11px; font-weight: 500; opacity: .7; margin-top: 1px; }
 
-    /* 集計サマリ */
-    .summary { display: flex; gap: 12px; margin-bottom: 16px; }
-    .summary .box { flex: 1; background: #fff; border-radius: 12px; padding: 13px 16px; }
-    .summary .lbl { font-size: 12px; color: #8a97a8; }
-    .summary .val { font-size: 20px; font-weight: 700; color: #1a2332; }
-    .summary .val small { font-size: 13px; font-weight: 600; color: #8a97a8; }
+    /*
+      ヒーローカード：このタブの主役（買った=使った額／我慢=浮いた額）を見せる。
+      「スクロール不要」方針でスリム化：絵文字を行内に寄せ・padding/数字を縮小し、
+      高さを抑えてリストの開始位置を上げる。対比サムネは廃止（リストに場所を譲る）。
+    */
+    .hero { border-radius: 18px; padding: 16px 20px; color: #fff; text-align: center;
+      margin-bottom: 12px; }
+    .hero.buy { background: linear-gradient(135deg, #3b82f6, #2563eb);
+      box-shadow: 0 8px 20px rgba(37,99,235,.22); }
+    .hero.save { background: linear-gradient(135deg, #22c55e, #16a34a);
+      box-shadow: 0 8px 20px rgba(22,163,74,.22); }
+    .hero .lbl { font-size: 13px; opacity: .95; }
+    .hero .amount { font-size: 36px; font-weight: 800; letter-spacing: -.02em;
+      line-height: 1.05; margin: 2px 0; }
+    .hero .amount small { font-size: 18px; font-weight: 700; }
+    /* 絵文字＋件数を1行にまとめ、対比（相手タブの額）もここに同居させて行数を増やさない */
+    .hero .sub { font-size: 12px; opacity: .9; margin-top: 4px; }
+    .hero .sub b { font-weight: 700; }
 
-    /* 主アクション（記録ボタン） */
-    .add-btn { display: block; width: 100%; text-align: center; padding: 14px; border-radius: 12px;
-      color: #fff; font-weight: 700; font-size: 16px; text-decoration: none; margin-bottom: 18px; }
-    .add-btn.buy { background: #2563eb; box-shadow: 0 2px 8px rgba(37,99,235,.25); }
-    .add-btn.save { background: #16a34a; box-shadow: 0 2px 8px rgba(22,163,74,.25); }
+    /* 主アクション（記録ボタン）：高さを詰める */
+    .add-btn { display: block; width: 100%; text-align: center; padding: 12px; border-radius: 12px;
+      color: #fff; font-weight: 700; font-size: 15px; text-decoration: none; margin-bottom: 12px; }
+    .add-btn.buy { background: #2563eb; box-shadow: 0 5px 14px rgba(37,99,235,.26); }
+    .add-btn.save { background: #16a34a; box-shadow: 0 5px 14px rgba(22,163,74,.26); }
 
-    /* カード型リスト */
-    .item { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
-      display: flex; align-items: center; gap: 12px; }
-    .item .cat { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: #eef2f7;
-      color: #5b6b82; white-space: nowrap; }
-    .item .name { flex: 1; font-weight: 600; color: #1a2332; }
-    .item .amt { font-weight: 700; color: #1a2332; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .item .acts a { font-size: 13px; color: #8a97a8; text-decoration: none; margin-left: 10px; }
-    .item .acts a.del { color: #dc2626; }
+    .section-h { font-size: 12px; font-weight: 700; color: #8a97a8; margin: 0 0 6px 4px; }
+
+    /*
+      リスト：カード型（1件ごとに白カード＋10px隙間＋2段組み）をやめ、
+      1枚のパネルに行を詰める「テーブル/リスト型」に変更。
+      ・1段組み（品名とカテゴリを横並び）・上下 padding を薄く・行間の隙間ゼロ
+      ・交互背景（ゼブラ）で区切り、カード枠と余白を捨てて密度を最大化
+      これで1件あたり ~60px → ~40px、隙間10px も消えて表示件数が大きく増える。
+    */
+    /*
+      リスト枠内スクロール：max-height を超えたぶんは枠の中だけスクロールする。
+      ヒーロー・記録ボタン・グラフは枠の外なので画面に固定されたまま動かない
+      ＝件数が何件に増えても「ページ全体はスクロールしない」を実現する。
+      高さは「ヒーロー＋ボタンを引いた残り」に収まる目安として 56vh。
+    */
+    .list { background: #fff; border-radius: 14px; overflow-y: auto; max-height: 56vh; }
+    .item { display: flex; align-items: center; gap: 10px; padding: 9px 14px; }
+    .item:nth-child(even) { background: #f7f9fc; }   /* ゼブラ */
+    .item .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+    .item .name { flex: 1; min-width: 0; font-weight: 600; color: #1a2332; font-size: 14px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item .cat { font-size: 11px; color: #9aa5b1; flex: none; }   /* 品名の隣に小さく */
+    .item .date { font-size: 11px; color: #b3bcc8; flex: none;     /* いつの記録か */
+      font-variant-numeric: tabular-nums; }
+    .item .amt { font-weight: 700; color: #1a2332; font-variant-numeric: tabular-nums;
+      white-space: nowrap; font-size: 14px; }
+    .item .acts a { font-size: 12px; color: #c2c9d2; text-decoration: none; margin-left: 8px; }
+    .item .acts a.del { color: #e7a3a3; }
+    .item .acts a:hover { color: #5b6b82; }
+    .item .acts a.del:hover { color: #dc2626; }
     .hint { text-align: center; color: #8a97a8; font-size: 13px; margin-top: 4px; }
   </style>
 </head>
@@ -62,8 +114,7 @@
       <a class="navbar-brand" href="{% url 'expenses:list' %}">お財布見張り番</a>
 
       <div class="navbar-nav ms-auto align-items-lg-center">
-        <!-- 支出一覧リンク -->
-        <a class="nav-link" href="{% url 'expenses:list' %}">支出一覧</a>
+        <!-- 一覧の切替は画面内のタブが担うため、ナビにリンクは置かない -->
         <!-- 管理画面リンク -->
         <a class="nav-link" href="/admin/">管理画面</a>
 
@@ -92,5 +143,10 @@
   <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
   ></script>
+
+  <!-- Chart.js CDN（カテゴリ別円グラフの描画に使う・ビルド不要） -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
