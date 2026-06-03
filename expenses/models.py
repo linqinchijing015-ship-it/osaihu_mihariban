@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User  # 追加
 
 # カテゴリコードごとの固定色。買った/我慢どちらの画面でも・並び順が変わっても
 # 「食費は常にこの色」になるよう、カテゴリと色を1対1で固定する。
@@ -19,6 +20,15 @@ class Expense(models.Model):
         ("gadget",  "ガジェット・趣味"),
         ("luxury",  "嗜好品・課金・コンビニ"),
     ]
+
+    # ユーザーに紐付けるフィールドを追加
+    # on_delete=CASCADE → ユーザーが削除されたら支出データも削除
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="ユーザー",
+        null=True,
+    )
 
     name = models.CharField(max_length=100, verbose_name="品名")
     amount = models.PositiveIntegerField(verbose_name="金額（円）")
@@ -57,6 +67,14 @@ class nonExpense(models.Model):
         ("gadget",  "ガジェット・趣味"),
         ("luxury",  "嗜好品・課金・コンビニ"),
     ]
+
+    # ユーザーに紐付けるフィールドを追加
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="ユーザー",
+        null=True,
+    )
 
     name = models.CharField(max_length=100, verbose_name="品名")
     amount = models.PositiveIntegerField(verbose_name="金額（円）")
