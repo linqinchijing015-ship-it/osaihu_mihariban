@@ -61,10 +61,15 @@ class ExpenseListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         # Sum は該当行が0件のとき None を返すので、その場合は 0 にそろえる
         context["total_amount"] = self.get_queryset().aggregate(total=Sum("amount"))["total"] or 0
-        # 対比表示用：我慢で浮いた額（相手タブの合計）
-        context["saved_amount"] = nonExpense.objects.aggregate(total=Sum("amount"))["total"] or 0
+        # 対比表示用：我慢で浮いた額（相手タブの合計）。自分のデータだけに絞る
+        # （objects 直叩きだと他ユーザー分まで混ざるため user で filter する）
+        context["saved_amount"] = nonExpense.objects.filter(
+            user=self.request.user
+        ).aggregate(total=Sum("amount"))["total"] or 0
         # カテゴリ別円グラフ用のデータ（ラベルと金額の配列）を JSON 文字列で渡す
         context["chart_data"] = _category_chart_json(self.get_queryset(), Expense.CATEGORY_CHOICES)
+        # スマホの「記録/グラフ」表示状態を URL クエリで保持（seg 切替で遷移しても維持される）
+        context["view"] = "graph" if self.request.GET.get("view") == "graph" else "main"
         return context
     def get_queryset(self):
         # self.request.user → 今ログインしているユーザー
@@ -133,10 +138,15 @@ class nonExpenseListView(LoginRequiredMixin, ListView):
         # 上部の集計バー用に「我慢して浮いた合計金額」を渡す
         context = super().get_context_data(**kwargs)
         context["total_amount"] = self.get_queryset().aggregate(total=Sum("amount"))["total"] or 0
-        # 対比表示用：使った額（相手タブの合計）
-        context["spent_amount"] = Expense.objects.aggregate(total=Sum("amount"))["total"] or 0
+        # 対比表示用：使った額（相手タブの合計）。自分のデータだけに絞る
+        # （objects 直叩きだと他ユーザー分まで混ざるため user で filter する）
+        context["spent_amount"] = Expense.objects.filter(
+            user=self.request.user
+        ).aggregate(total=Sum("amount"))["total"] or 0
         # カテゴリ別円グラフ用のデータを JSON 文字列で渡す
         context["chart_data"] = _category_chart_json(self.get_queryset(), nonExpense.CATEGORY_CHOICES)
+        # スマホの「記録/グラフ」表示状態を URL クエリで保持（seg 切替で遷移しても維持される）
+        context["view"] = "graph" if self.request.GET.get("view") == "graph" else "main"
         return context
     
     def get_queryset(self):
