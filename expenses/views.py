@@ -8,9 +8,39 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.views.generic import CreateView
 from django.db.models import Sum
+import json
 
-from .models import Expense, nonExpense
+from .models import Expense, nonExpense, CATEGORY_COLORS
 from .forms import ExpenseForm, nonExpenseForm
+
+
+def _category_chart_json(queryset, category_choices):
+    """カテゴリ別の合計金額を、円グラフ用の JSON 文字列にして返す。
+
+    - 金額が 0 のカテゴリは凡例がうるさくなるので除外する
+    - ラベルは choices の表示名（例: "食費・日用品"）を使う
+    - 色は CATEGORY_COLORS でカテゴリごとに固定し、ラベルと同じ並びで渡す
+    - 返り値はテンプレートで {{ chart_data|safe }} として Chart.js に渡す
+    """
+    # {カテゴリコード: 表示名} の対応表
+    label_map = dict(category_choices)
+    # カテゴリごとに金額を合計。
+    # 注意: モデルの Meta.ordering（-created_at）が GROUP BY に混入すると
+    # 「category, created_at」でグループ化され、同カテゴリが日時ごとに分割されて
+    # 円グラフに同色の重複スライスが出る。.order_by() で並びを消してから集計する。
+    rows = queryset.order_by().values("category").annotate(total=Sum("amount"))
+    labels, values, colors = [], [], []
+    for row in rows:
+        if not row["total"]:
+            continue
+        code = row["category"]
+        labels.append(label_map.get(code, code))
+        values.append(row["total"])
+        colors.append(CATEGORY_COLORS.get(code, "#9ca3af"))  # 未知カテゴリは灰
+    return json.dumps(
+        {"labels": labels, "values": values, "colors": colors},
+        ensure_ascii=False,
+    )
 
 class ExpenseListView(LoginRequiredMixin, ListView):
     """支出一覧を表示する View。
@@ -31,6 +61,15 @@ class ExpenseListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         # Sum は該当行が0件のとき None を返すので、その場合は 0 にそろえる
         context["total_amount"] = self.get_queryset().aggregate(total=Sum("amount"))["total"] or 0
+        # 対比表示用：我慢で浮いた額（相手タブの合計）。自分のデータだけに絞る
+        # （objects 直叩きだと他ユーザー分まで混ざるため user で filter する）
+        context["saved_amount"] = nonExpense.objects.filter(
+            user=self.request.user
+        ).aggregate(total=Sum("amount"))["total"] or 0
+        # カテゴリ別円グラフ用のデータ（ラベルと金額の配列）を JSON 文字列で渡す
+        context["chart_data"] = _category_chart_json(self.get_queryset(), Expense.CATEGORY_CHOICES)
+        # スマホの「記録/グラフ」表示状態を URL クエリで保持（seg 切替で遷移しても維持される）
+        context["view"] = "graph" if self.request.GET.get("view") == "graph" else "main"
         return context
     def get_queryset(self):
         # self.request.user → 今ログインしているユーザー
@@ -99,6 +138,15 @@ class nonExpenseListView(LoginRequiredMixin, ListView):
         # 上部の集計バー用に「我慢して浮いた合計金額」を渡す
         context = super().get_context_data(**kwargs)
         context["total_amount"] = self.get_queryset().aggregate(total=Sum("amount"))["total"] or 0
+        # 対比表示用：使った額（相手タブの合計）。自分のデータだけに絞る
+        # （objects 直叩きだと他ユーザー分まで混ざるため user で filter する）
+        context["spent_amount"] = Expense.objects.filter(
+            user=self.request.user
+        ).aggregate(total=Sum("amount"))["total"] or 0
+        # カテゴリ別円グラフ用のデータを JSON 文字列で渡す
+        context["chart_data"] = _category_chart_json(self.get_queryset(), nonExpense.CATEGORY_CHOICES)
+        # スマホの「記録/グラフ」表示状態を URL クエリで保持（seg 切替で遷移しても維持される）
+        context["view"] = "graph" if self.request.GET.get("view") == "graph" else "main"
         return context
     
     def get_queryset(self):

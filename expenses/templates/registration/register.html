@@ -3,31 +3,42 @@
 {% block title %}新規登録 - osaihu_mihariban{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-5">
-    <h1 class="h4 mb-4">新規登録</h1>
+{#
+  新規登録画面：ログインと同じ認証カード（.auth-* / base.html）で統一。
+  UserCreationForm をループで回し、各フィールドを .auth-field でラップして
+  ラベル・入力欄・ヘルプ文・エラーをトークン準拠の見た目に整える。
+#}
+<div class="auth-wrap">
+  <div class="auth-card">
+
+    <div class="auth-brand">
+      <span class="badge-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4.5A1.5 1.5 0 0 1 3 17.5z"/>
+          <path d="M3 8.5V7a2 2 0 0 1 2-2h11"/>
+          <circle cx="16.5" cy="12.5" r="1.3" fill="currentColor" stroke="none"/>
+        </svg>
+      </span>
+      <h1>アカウント作成</h1>
+      <p>お財布見張り番をはじめる</p>
+    </div>
 
     <form method="post" action="">
       {% csrf_token %}
-
       {% for field in form %}
-        <div class="mb-3">
-          <label class="form-label">{{ field.label }}</label>
+        <div class="auth-field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
-          {% if field.errors %}
-            <div class="text-danger">{{ field.errors }}</div>
-          {% endif %}
-          {% if field.help_text %}
-            <div class="form-text text-muted">{{ field.help_text }}</div>
-          {% endif %}
+          {% if field.errors %}<div class="err">{{ field.errors|striptags }}</div>{% endif %}
+          {% if field.help_text %}<div class="help">{{ field.help_text|safe }}</div>{% endif %}
         </div>
       {% endfor %}
-
-      <button type="submit" class="btn btn-primary w-100">登録する</button>
+      <button type="submit" class="auth-submit">登録する</button>
     </form>
 
-    <div class="mt-3 text-center">
-      <a href="{% url 'login' %}">すでにアカウントをお持ちの方はこちら</a>
+    <div class="auth-foot">
+      すでにアカウントをお持ちの方は <a href="{% url 'login' %}">ログイン</a>
     </div>
 
   </div>

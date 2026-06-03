@@ -16,67 +16,254 @@
     モックA（ui-mock-A-tabs.html）準拠。色は 青=買った / 緑=我慢 で統一。
   -->
   <style>
-    body { background: #f4f6fa; }
-    .page-wrap { max-width: 680px; margin: 0 auto; }
+    /*
+      デザイントークン（共通ルール）：色・角丸・影をここに1組だけ定義し、
+      全要素がこれを参照する。個別にバラバラな値を書かないことで統一感を担保する。
+      トーン＝「柔らか・明るい」：薄い青みの背景・丸み・パステルの青を主役に。
+    */
+    :root {
+      --bg: #eef2f9;            /* 画面全体の薄い青みグレー背景 */
+      --card: #ffffff;          /* カード地 */
+      --brand: #2563eb;         /* 主役色（買った）青 */
+      --brand-soft: #eaf1fe;    /* ブランド青の極薄（ホバー/アクセント地） */
+      --save: #16a34a;          /* 我慢の緑 */
+      --ink: #1e293b;           /* 文字 濃 */
+      --ink-mid: #64748b;       /* 文字 中 */
+      --ink-soft: #94a3b8;      /* 文字 薄 */
+      --line: #e8eef6;          /* 境界線 */
+      --r-lg: 20px;             /* 角丸 大（ヒーロー/カード） */
+      --r-md: 14px;             /* 角丸 中（リスト/ボタン） */
+      --r-sm: 10px;             /* 角丸 小（タブ/小物） */
+      --shadow-sm: 0 1px 3px rgba(30,41,59,.04), 0 4px 12px rgba(30,41,59,.05);
+      --shadow-md: 0 8px 24px rgba(30,41,59,.08);
+      --font: system-ui, "Hiragino Sans", "Yu Gothic", sans-serif;
+    }
+    body { background: var(--bg); color: var(--ink); font-family: var(--font); }
+
+    /*
+      ナビバー：黒(bg-dark)も白も避け、ブランド色(青)の背景＋白文字に。
+      背景(薄い青みグレー)と同化せず境界が明確になり、画面全体の青トーンと統一される。
+      アイコンは絵文字でなくインライン SVG（白の財布）を使う。
+    */
+    .topbar { background: var(--brand);
+      box-shadow: 0 2px 10px rgba(37,99,235,.18); }
+    .topbar .brand { display: flex; align-items: center; gap: 7px;
+      font-weight: 800; font-size: 17px; color: #fff;
+      text-decoration: none; letter-spacing: .01em; }
+    .topbar .brand svg { width: 22px; height: 22px; flex: none; }
+    .topbar .nav-area { display: flex; align-items: center; gap: 14px; }
+    .topbar .nav-area a { color: rgba(255,255,255,.85); text-decoration: none; font-size: 14px; }
+    .topbar .nav-area a:hover { color: #fff; }
+    .topbar .uname { color: rgba(255,255,255,.9); font-size: 14px; }
+    .topbar .logout { background: rgba(255,255,255,.18); color: #fff; border: none;
+      padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: .15s; }
+    .topbar .logout:hover { background: rgba(255,255,255,.3); }
+
+    /*
+      2カラムレイアウト：左=操作（タブ＋集計＋リスト）／右=グラフ。
+      PC は横並び、スマホ（991px以下）は縦積み（左→右の順＝リストの下にグラフ…ではなく、
+      スマホでは「集計の全体像を先に見せる」ため col-graph を col-main の前に出す）。
+    */
+    .layout { max-width: 1040px; margin: 0 auto; display: grid; gap: 24px;
+      grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }
+    .col-graph { position: sticky; top: 16px; }  /* スクロールしても右に追従 */
+
+    /* スマホ専用要素：PC では隠す（切替タブ／スマホ用の買った我慢タブ）。
+       .seg-mobile は class="seg seg-mobile" なので .seg(display:flex) と詳細度が並ぶ。
+       後勝ち回避のため .seg.seg-mobile（詳細度を1段上げる）で確実に隠す。 */
+    .view-switch { display: none; }
+    .seg.seg-mobile { display: none; }
+
+    @media (max-width: 991px) {
+      /* スマホは1カラム。両方を縦積みにせず、view-switch タブで片方だけ表示する */
+      .layout { grid-template-columns: 1fr; }
+      .col-graph { position: static; }
+
+      /* 買った/我慢タブをスマホでは上部共通エリアに出す（グラフ表示時も残るよう col-main の外） */
+      .seg.seg-mobile { display: flex; }
+      /* 逆に col-main 内の元の seg タブはスマホでは隠す（二重表示を防ぐ） */
+      .col-main > .seg { display: none; }
+
+      /* 記録／グラフ切替タブ */
+      .view-switch { display: flex; background: #e3e9f3; border-radius: var(--r-sm);
+        padding: 4px; margin-bottom: 14px; }
+      .view-switch button { flex: 1; text-align: center; padding: 9px 0; border: none;
+        background: none; border-radius: 8px; font-weight: 600; font-size: 14px;
+        color: var(--ink-mid); cursor: pointer; transition: .15s; }
+      .view-switch button.active { background: var(--card); box-shadow: var(--shadow-sm);
+        color: var(--brand); }
+
+      /* JS が付ける状態クラスで表示を出し分ける。既定は「記録」表示 */
+      .layout.show-graph .col-main { display: none; }
+      .layout:not(.show-graph) .col-graph { display: none; }
+
+      /*
+        スマホでもスクロール不要に：リストを「画面の残り高さ」に収めて枠内スクロール。
+        引く内訳: ナビ56 + container上下48 + 買った我慢タブ52 + 記録グラフタブ52
+        + ヒーロー120 + 記録ボタン52 + 余白マージン約30 ≒ 410px。
+      */
+      .list { max-height: calc(100vh - 410px); }
+      /*
+        グラフ表示時：カードは画面内に収めるが overflow:hidden で凡例を切らないよう、
+        canvas 側の高さを抑えてカード全体（ドーナツ＋下の凡例）が収まるようにする。
+        グラフタブは seg+view-switch の下なので、引く高さは控えめ（ナビ+タブ群+余白）。
+      */
+      .col-graph .graph-card { overflow: visible; }
+      .col-graph canvas { max-height: calc(100vh - 320px) !important; }
+    }
+
+    /* グラフカード */
+    .graph-card { background: var(--card); border-radius: var(--r-lg); padding: 18px 18px 8px;
+      box-shadow: var(--shadow-sm); }
+    .graph-card h2 { font-size: 14px; font-weight: 700; color: var(--ink); margin: 0 0 10px; }
+    .graph-empty { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 24px 0; }
 
     /* セグメントタブ：今どっちを見ているか＋切替を兼ねる（中身は2URLへのリンク） */
-    .seg { display: flex; background: #e8edf5; border-radius: 14px; padding: 5px; margin-bottom: 18px; }
-    .seg a { flex: 1; text-align: center; padding: 11px 0; border-radius: 10px; text-decoration: none;
-      font-weight: 600; font-size: 15px; color: #5b6b82; transition: .15s; }
-    .seg a.active { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-    .seg a.active.buy { color: #2563eb; }   /* 買ったもの = 青 */
-    .seg a.active.save { color: #16a34a; }  /* 我慢したもの = 緑 */
+    .seg { display: flex; background: #e3e9f3; border-radius: var(--r-sm); padding: 4px; margin-bottom: 14px; }
+    .seg a { flex: 1; text-align: center; padding: 9px 0; border-radius: 8px; text-decoration: none;
+      font-weight: 600; font-size: 14px; color: var(--ink-mid); transition: .15s; }
+    .seg a.active { background: var(--card); box-shadow: var(--shadow-sm); }
+    .seg a.active.buy { color: var(--brand); }   /* 買ったもの = 青 */
+    .seg a.active.save { color: var(--save); }   /* 我慢したもの = 緑 */
     .seg a .cnt { display: block; font-size: 11px; font-weight: 500; opacity: .7; margin-top: 1px; }
 
-    /* 集計サマリ */
-    .summary { display: flex; gap: 12px; margin-bottom: 16px; }
-    .summary .box { flex: 1; background: #fff; border-radius: 12px; padding: 13px 16px; }
-    .summary .lbl { font-size: 12px; color: #8a97a8; }
-    .summary .val { font-size: 20px; font-weight: 700; color: #1a2332; }
-    .summary .val small { font-size: 13px; font-weight: 600; color: #8a97a8; }
+    /*
+      ヒーローカード：このタブの主役（買った=使った額／我慢=浮いた額）を見せる。
+      「スクロール不要」方針でスリム化：絵文字を行内に寄せ・padding/数字を縮小し、
+      高さを抑えてリストの開始位置を上げる。対比サムネは廃止（リストに場所を譲る）。
+    */
+    .hero { border-radius: var(--r-lg); padding: 22px 24px 20px; color: #fff; text-align: center;
+      margin-bottom: 16px; }
+    .hero.buy { background: linear-gradient(135deg, #5b9bf8, #2563eb);
+      box-shadow: 0 12px 28px rgba(37,99,235,.22); }
+    .hero.save { background: linear-gradient(135deg, #4ade80, #16a34a);
+      box-shadow: 0 12px 28px rgba(22,163,74,.22); }
+    /* ラベルは控えめに（脇役）：小さく・字間を空け・やや透過。主役の数字を引き立てる */
+    .hero .lbl { font-size: 12px; opacity: .9; letter-spacing: .04em; font-weight: 600; }
+    /* 主役の数字：大きく・締まった字間で「上質な数字」に。weight と size で階層を立てる */
+    .hero .amount { font-size: 44px; font-weight: 800; letter-spacing: -.025em;
+      line-height: 1.0; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+    .hero .amount small { font-size: 20px; font-weight: 700; margin-left: 2px; opacity: .92; }
+    /* 件数＋対比（相手タブの額）を1行に同居させ行数を増やさない。従なので小さく薄く */
+    .hero .sub { font-size: 12px; opacity: .85; margin-top: 2px; letter-spacing: .01em; }
+    .hero .sub b { font-weight: 700; opacity: 1; }
 
     /* 主アクション（記録ボタン） */
-    .add-btn { display: block; width: 100%; text-align: center; padding: 14px; border-radius: 12px;
-      color: #fff; font-weight: 700; font-size: 16px; text-decoration: none; margin-bottom: 18px; }
-    .add-btn.buy { background: #2563eb; box-shadow: 0 2px 8px rgba(37,99,235,.25); }
-    .add-btn.save { background: #16a34a; box-shadow: 0 2px 8px rgba(22,163,74,.25); }
+    .add-btn { display: block; width: 100%; text-align: center; padding: 13px; border-radius: var(--r-md);
+      color: #fff; font-weight: 700; font-size: 15px; text-decoration: none; margin-bottom: 14px;
+      transition: .15s; }
+    .add-btn.buy { background: var(--brand); box-shadow: 0 6px 16px rgba(37,99,235,.24); }
+    .add-btn.save { background: var(--save); box-shadow: 0 6px 16px rgba(22,163,74,.24); }
+    .add-btn:hover { transform: translateY(-1px); filter: brightness(1.04); }
 
-    /* カード型リスト */
-    .item { background: #fff; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
-      display: flex; align-items: center; gap: 12px; }
-    .item .cat { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: #eef2f7;
-      color: #5b6b82; white-space: nowrap; }
-    .item .name { flex: 1; font-weight: 600; color: #1a2332; }
-    .item .amt { font-weight: 700; color: #1a2332; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .item .acts a { font-size: 13px; color: #8a97a8; text-decoration: none; margin-left: 10px; }
-    .item .acts a.del { color: #dc2626; }
-    .hint { text-align: center; color: #8a97a8; font-size: 13px; margin-top: 4px; }
+    .section-h { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin: 0 0 6px 4px; }
+
+    /*
+      リスト：カード型（1件ごとに白カード＋10px隙間＋2段組み）をやめ、
+      1枚のパネルに行を詰める「テーブル/リスト型」に変更。
+      ・1段組み（品名とカテゴリを横並び）・上下 padding を薄く・行間の隙間ゼロ
+      ・交互背景（ゼブラ）で区切り、カード枠と余白を捨てて密度を最大化
+      これで1件あたり ~60px → ~40px、隙間10px も消えて表示件数が大きく増える。
+    */
+    /*
+      リスト枠内スクロール：max-height を超えたぶんは枠の中だけスクロールする。
+      ヒーロー・記録ボタン・グラフは枠の外なので画面に固定されたまま動かない
+      ＝件数が何件に増えても「ページ全体はスクロールしない」を実現する。
+
+      高さは「画面の全高(100vh)から、上に積まれる固定要素を引いた残り」にする。
+      引く内訳（おおよそ）: ナビバー56px + container上下padding48px
+      + タブ48px + ヒーロー120px + 記録ボタン52px + 余白マージン約36px ≒ 360px。
+      これで vh 固定だと起きていた「ナビバー分だけページがはみ出す」を解消する。
+    */
+    .list { background: var(--card); border-radius: var(--r-lg); overflow-y: auto;
+      max-height: calc(100vh - 360px); box-shadow: var(--shadow-sm); }
+    .item { display: flex; align-items: center; gap: 11px; padding: 12px 16px;
+      border-bottom: 1px solid var(--line); transition: background .12s; }
+    .item:last-child { border-bottom: none; }
+    .item:hover { background: var(--brand-soft); }   /* ホバーでブランド色の極薄に */
+    .item .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+    /* 品名＝主役：濃く・やや太く。日付/カテゴリ＝従：小さく薄く引いて主従を立てる */
+    .item .name { flex: 1; min-width: 0; font-weight: 600; color: var(--ink); font-size: 14px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .01em; }
+    .item .cat { font-size: 11px; color: var(--ink-soft); flex: none; }   /* 品名の隣に小さく（従） */
+    .item .date { font-size: 11px; color: var(--ink-soft); flex: none; opacity: .8;  /* いつの記録か */
+      font-variant-numeric: tabular-nums; }
+    /* 金額＝数字の主役：等幅・締まった字間で読みやすく上質に */
+    .item .amt { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
+      white-space: nowrap; font-size: 14px; letter-spacing: -.01em; }
+    .item .acts a { font-size: 12px; color: var(--ink-soft); text-decoration: none; margin-left: 8px; }
+    .item .acts a.del { color: #d99b9b; }
+    .item .acts a:hover { color: var(--brand); }
+    .item .acts a.del:hover { color: #dc2626; }
+    .hint { text-align: center; color: var(--ink-soft); font-size: 13px; margin-top: 8px; }
+
+    /*
+      認証画面（ログイン／新規登録）共通：中央に浮かぶカードにまとめ、本文と同じ
+      デザイントークンで統一する。Bootstrap 素フォームの「余白だけ多い」状態の解消。
+    */
+    .auth-wrap { min-height: calc(100vh - 56px - 48px); display: flex;
+      align-items: center; justify-content: center; }
+    .auth-card { width: 100%; max-width: 380px; background: var(--card);
+      border-radius: var(--r-lg); box-shadow: var(--shadow-md); padding: 32px 30px; }
+    .auth-brand { text-align: center; margin-bottom: 24px; }
+    .auth-brand .badge-ico { width: 54px; height: 54px; border-radius: 16px;
+      background: linear-gradient(135deg, #5b9bf8, var(--brand));
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 20px rgba(37,99,235,.28); margin-bottom: 12px; }
+    .auth-brand .badge-ico svg { width: 28px; height: 28px; color: #fff; }
+    .auth-brand h1 { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0; }
+    .auth-brand p { font-size: 13px; color: var(--ink-mid); margin: 4px 0 0; }
+    .auth-field { margin-bottom: 16px; }
+    .auth-field label { display: block; font-size: 12px; font-weight: 600;
+      color: var(--ink-mid); margin-bottom: 6px; letter-spacing: .02em; }
+    /* input は直書きと、Django フォームが吐く input 両方に効くよう要素セレクタで指定 */
+    .auth-field input { width: 100%; padding: 12px 14px; font-size: 15px;
+      border: 1.5px solid var(--line); border-radius: var(--r-md);
+      background: #fbfcfe; color: var(--ink); transition: .15s; outline: none; }
+    .auth-field input:focus { border-color: var(--brand); background: #fff;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+    .auth-field input::placeholder { color: var(--ink-soft); }
+    .auth-field .help { font-size: 11px; color: var(--ink-soft); margin-top: 5px; line-height: 1.5; }
+    .auth-field .err { font-size: 12px; color: #b91c1c; margin-top: 5px; }
+    .auth-submit { width: 100%; padding: 13px; border: none; border-radius: var(--r-md);
+      background: var(--brand); color: #fff; font-weight: 700; font-size: 15px;
+      cursor: pointer; box-shadow: 0 6px 16px rgba(37,99,235,.24); transition: .15s; }
+    .auth-submit:hover { transform: translateY(-1px); filter: brightness(1.04); }
+    .auth-error { background: #fef2f2; color: #b91c1c; border-radius: var(--r-md);
+      padding: 10px 14px; font-size: 13px; margin-bottom: 16px; }
+    .auth-foot { text-align: center; margin-top: 18px; font-size: 13px; color: var(--ink-mid); }
+    .auth-foot a { color: var(--brand); text-decoration: none; font-weight: 600; }
+    .auth-foot a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
 
-  <!-- ナビバー -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-      <!-- サイト名 -->
-      <a class="navbar-brand" href="{% url 'expenses:list' %}">お財布見張り番</a>
+  <!--
+    ナビバー：黒(bg-dark)をやめ、白地＋下境界線の .topbar に統一（トークン参照）。
+    本文の柔らかいトーンと地続きにして、画面全体の統一感を出す。
+  -->
+  <nav class="topbar">
+    <div class="container d-flex align-items-center" style="height: 56px;">
+      <a class="brand" href="{% url 'expenses:list' %}">
+        {# 財布アイコン（インラインSVG・外部依存なし・currentColorで白文字に追従） #}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4.5A1.5 1.5 0 0 1 3 17.5z"/>
+          <path d="M3 8.5V7a2 2 0 0 1 2-2h11"/>
+          <circle cx="16.5" cy="12.5" r="1.3" fill="currentColor" stroke="none"/>
+        </svg>
+        お財布見張り番
+      </a>
 
-      <div class="navbar-nav ms-auto align-items-lg-center">
-        <!-- 支出一覧リンク -->
-        <a class="nav-link" href="{% url 'expenses:list' %}">支出一覧</a>
-        <!-- 管理画面リンク -->
-        <a class="nav-link" href="/admin/">管理画面</a>
-
+      <div class="nav-area ms-auto">
+        <a href="/admin/">管理画面</a>
         {% if user.is_authenticated %}
-          <!-- ログイン中のユーザー名 -->
-          <span class="navbar-text ms-lg-2">{{ user.username }} さん</span>
-          <!--
-            ログアウト。Django 5 で LogoutView は POST 専用になったため、
-            <a href> ではなく <form method="post"> + ボタンで送信する。
-          -->
-          <form method="post" action="{% url 'logout' %}" class="d-inline ms-lg-2">
+          <span class="uname">{{ user.username }} さん</span>
+          {# ログアウト：Django 5 で LogoutView は POST 専用なので form 送信 #}
+          <form method="post" action="{% url 'logout' %}" class="d-inline">
             {% csrf_token %}
-            <button type="submit" class="btn btn-outline-light btn-sm">ログアウト</button>
+            <button type="submit" class="logout">ログアウト</button>
           </form>
         {% endif %}
       </div>
@@ -92,5 +279,10 @@
   <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
   ></script>
+
+  <!-- Chart.js CDN（カテゴリ別円グラフの描画に使う・ビルド不要） -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

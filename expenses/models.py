@@ -1,6 +1,17 @@
 from django.db import models
 from django.contrib.auth.models import User  # 追加
 
+# カテゴリコードごとの固定色。買った/我慢どちらの画面でも・並び順が変わっても
+# 「食費は常にこの色」になるよう、カテゴリと色を1対1で固定する。
+# グラフ（views）とカード左のドット（テンプレート）の両方がこれを参照する。
+CATEGORY_COLORS = {
+    "food":    "#2563eb",  # 食費・日用品 = 青
+    "apparel": "#16a34a",  # 衣服・書籍 = 緑
+    "gadget":  "#f59e0b",  # ガジェット・趣味 = 橙
+    "luxury":  "#dc2626",  # 嗜好品・課金・コンビニ = 赤
+}
+
+
 # models.py — 支出を表すモデルの定義
 class Expense(models.Model):
     CATEGORY_CHOICES = [
@@ -41,7 +52,12 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.amount}円)"
-    
+
+    @property
+    def category_color(self):
+        # カード左のドット用。未知カテゴリは灰
+        return CATEGORY_COLORS.get(self.category, "#9ca3af")
+
 
 # 追加: 我慢した物を表すモデル
 class nonExpense(models.Model):
@@ -81,3 +97,8 @@ class nonExpense(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.amount}円)"
+
+    @property
+    def category_color(self):
+        # カード左のドット用。未知カテゴリは灰
+        return CATEGORY_COLORS.get(self.category, "#9ca3af")

@@ -1,50 +1,137 @@
 {% extends "expenses/base.html" %}
+{% load humanize %}
 
 {% block title %}我慢したもの - osaihu_mihariban{% endblock %}
 
 {% block content %}
-<div class="page-wrap">
+{# スマホ専用：買った/我慢タブ。グラフ表示中(view=graph)は遷移先にも ?view=graph を引き継ぐ #}
+<div class="seg seg-mobile">
+  <a href="{% url 'expenses:list' %}{% if view == 'graph' %}?view=graph{% endif %}">買ったもの</a>
+  <a href="{% url 'expenses:non_list' %}{% if view == 'graph' %}?view=graph{% endif %}" class="active save">我慢したもの</a>
+</div>
 
-  {# セグメントタブ：今は「我慢したもの」がアクティブ。相手タブは支出画面へのリンク #}
-  <div class="seg">
-    <a href="{% url 'expenses:list' %}">
-      買ったもの
-    </a>
-    <a href="{% url 'expenses:non_list' %}" class="active save">
-      我慢したもの<span class="cnt">{{ nonexpenses|length }}件・{{ total_amount }}円</span>
-    </a>
+{# スマホ専用：記録(リスト)とグラフを切り替えるタブ。初期 active は view で決まる #}
+<div class="view-switch" id="viewSwitch">
+  <button type="button" class="{% if view != 'graph' %}active{% endif %}" data-view="main">記録</button>
+  <button type="button" class="{% if view == 'graph' %}active{% endif %}" data-view="graph">グラフ</button>
+</div>
+
+{# view=graph なら最初からグラフ表示 #}
+<div class="layout{% if view == 'graph' %} show-graph{% endif %}" id="layout">
+
+  {# 左カラム：操作（タブ＋主役ヒーロー＋対比＋記録ボタン＋リスト） #}
+  <div class="col-main">
+
+    {# セグメントタブ #}
+    <div class="seg">
+      <a href="{% url 'expenses:list' %}">買ったもの</a>
+      <a href="{% url 'expenses:non_list' %}" class="active save">我慢したもの</a>
+    </div>
+
+    {# 主役ヒーロー：我慢で浮いた額（このアプリのコア価値）。使った額と回数は sub に同居 #}
+    <div class="hero save">
+      <div class="lbl">🎉 今月、我慢できた金額</div>
+      <div class="amount">{{ total_amount|intcomma }}<small> 円</small></div>
+      <div class="sub">{{ nonexpenses|length }}回 ・ 今月 使った額 <b>{{ spent_amount|intcomma }}円</b></div>
+    </div>
+
+    <a href="{% url 'expenses:non_add' %}" class="add-btn save">＋ 我慢したものを記録する</a>
+
+    {% if nonexpenses %}
+      {# リスト型（1パネルに行を詰める）。1段組み・薄padding・ゼブラで密度最大化 #}
+      <div class="list">
+        {% for item in nonexpenses %}
+        <div class="item">
+          <span class="dot" style="background: {{ item.category_color }}"></span>
+          <span class="name">{{ item.name }}</span>
+          <span class="cat">{{ item.get_category_display }}</span>
+          <span class="date">{{ item.created_at|date:"n/j" }}</span>
+          <span class="amt">{{ item.amount|intcomma }}円</span>
+          <span class="acts">
+            <a href="{% url 'expenses:non_edit' item.pk %}">編集</a>
+            <a href="{% url 'expenses:non_delete' item.pk %}" class="del">削除</a>
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+
+    {% else %}
+      <div class="alert alert-info">
+        まだ記録がありません。上の「＋ 我慢したものを記録する」から追加してください。
+      </div>
+    {% endif %}
+
   </div>
 
-  {# 集計サマリ（このタブの内容） #}
-  <div class="summary">
-    <div class="box"><div class="lbl">我慢して浮いた額</div><div class="val">{{ total_amount }}<small> 円</small></div></div>
-    <div class="box"><div class="lbl">件数</div><div class="val">{{ nonexpenses|length }}<small> 件</small></div></div>
+  {# 右カラム：カテゴリ別の円グラフ #}
+  <div class="col-graph">
+    <div class="graph-card">
+      <h2>何を我慢したか（カテゴリ別）</h2>
+      {% if nonexpenses %}
+        <canvas id="categoryChart" height="240"></canvas>
+      {% else %}
+        <p class="graph-empty">記録が増えると、ここに内訳の円グラフが出ます</p>
+      {% endif %}
+    </div>
   </div>
-
-  {# 主アクション #}
-  <a href="{% url 'expenses:non_add' %}" class="add-btn save">＋ 我慢したものを記録する</a>
-
-  {% if nonexpenses %}
-    {# カード型リスト #}
-    {% for item in nonexpenses %}
-    <div class="item">
-      <span class="cat">{{ item.get_category_display }}</span>
-      <span class="name">{{ item.name }}</span>
-      <span class="amt">{{ item.amount }}円</span>
-      <span class="acts">
-        <a href="{% url 'expenses:non_edit' item.pk %}">編集</a>
-        <a href="{% url 'expenses:non_delete' item.pk %}" class="del">削除</a>
-      </span>
-    </div>
-    {% endfor %}
-
-    <p class="hint">「買ったもの」タブに切り替えると、支出の記録が見られます</p>
-
-  {% else %}
-    <div class="alert alert-info">
-      まだ記録がありません。上の「＋ 我慢したものを記録する」から追加してください。
-    </div>
-  {% endif %}
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if nonexpenses %}
+<script>
+  // views.py が渡す JSON（ラベル・金額・カテゴリ固定色）を Chart.js に流し込む
+  const chartData = {{ chart_data|safe }};
+  new Chart(document.getElementById("categoryChart"), {
+    type: "doughnut",
+    data: {
+      labels: chartData.labels,
+      datasets: [{
+        data: chartData.values,
+        // 色はカテゴリ固定（models の CATEGORY_COLORS）。買った画面と同じカテゴリは同じ色
+        backgroundColor: chartData.colors,
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      plugins: { legend: { position: "bottom", labels: { font: { size: 12 } } } },
+      cutout: "60%",
+      responsive: true, maintainAspectRatio: true,
+    },
+  });
+</script>
+{% endif %}
+
+{# スマホの「記録／グラフ」切替（PC では view-switch が非表示なので無害） #}
+<script>
+  (function () {
+    var sw = document.getElementById("viewSwitch");
+    var layout = document.getElementById("layout");
+    if (!sw || !layout) return;
+
+    // 買った/我慢タブの href を現在の表示状態に合わせる
+    function syncSegLinks(showGraph) {
+      document.querySelectorAll(".seg-mobile a").forEach(function (a) {
+        var base = a.getAttribute("href").split("?")[0];
+        a.setAttribute("href", showGraph ? base + "?view=graph" : base);
+      });
+    }
+    syncSegLinks(layout.classList.contains("show-graph"));
+
+    sw.addEventListener("click", function (e) {
+      var btn = e.target.closest("button[data-view]");
+      if (!btn) return;
+      sw.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      var showGraph = btn.dataset.view === "graph";
+      layout.classList.toggle("show-graph", showGraph);
+      syncSegLinks(showGraph);
+      if (showGraph) {
+        var c = window.Chart && window.Chart.getChart("categoryChart");
+        if (c) c.resize();
+      }
+    });
+  })();
+</script>
 {% endblock %}
