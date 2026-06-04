@@ -38,6 +38,23 @@
           <div class="text-danger">{{ form.category.errors }}</div>
         {% endif %}
       </div>
+      <!-- 我慢度 -->
+      <div class="mb-3">
+      <label class="form-label">我慢度（1=少し我慢 〜 5=完全に我慢）</label>
+      {{ form.endurance }}
+      {% if form.endurance.errors %}
+          <div class="text-danger">{{ form.endurance.errors }}</div>
+      {% endif %}
+      </div>
+
+      <!-- メモ -->
+      <div class="mb-3">
+      <label class="form-label">メモ（任意）</label>
+      {{ form.memo }}
+      {% if form.memo.errors %}
+          <div class="text-danger">{{ form.memo.errors }}</div>
+      {% endif %}
+      </div>
 
       <div class="d-flex gap-2">
         <button type="submit" class="btn btn-success">保存</button>
