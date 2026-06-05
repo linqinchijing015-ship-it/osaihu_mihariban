@@ -68,3 +68,38 @@ def calc_endurance_score(amount: int, endurance: int, category: str) -> float:
 
     score = base * endurance_factor + amount_factor * 60
     return round(min(max(score, 0), 100), 1)
+
+
+# ===== ごほうびバッジ（B案：ごほうびゲーム） =====
+# 我慢の積み上げを「実績」として段階的に解放する。
+# デモで必ず1つは光るよう、初級の条件はごく緩く設定している。
+# 各バッジは (絵文字, ラベル, 達成判定関数) のタプル。
+# 判定には集計値 stats(dict) を渡す:
+#   stats = {"count": 我慢の総回数, "saved": 我慢で浮いた総額, "best": 我慢スコアの最高値}
+REWARD_BADGES = [
+    ("🌱", "はじめの一歩", lambda s: s["count"] >= 1),
+    ("🔥", "我慢5回",     lambda s: s["count"] >= 5),
+    ("💪", "我慢10回",    lambda s: s["count"] >= 10),
+    ("💰", "1万円ガマン",  lambda s: s["saved"] >= 10000),
+    ("👑", "5万円ガマン",  lambda s: s["saved"] >= 50000),
+    ("⭐", "ハイスコア80", lambda s: s["best"] >= 80),
+]
+
+
+def reward_badges(count: int, saved: int, best: float):
+    """獲得状況込みのバッジ一覧を返す。
+
+    引数:
+        count: 我慢した回数
+        saved: 我慢で浮いた総額（円）
+        best : 我慢スコアの最高値（未記録なら 0）
+
+    戻り値:
+        list[dict]: 各 {"icon", "label", "earned"(bool)}。
+        テンプレートはこれを回して、earned=True は点灯・False はロック表示する。
+    """
+    stats = {"count": count or 0, "saved": saved or 0, "best": best or 0}
+    return [
+        {"icon": icon, "label": label, "earned": bool(cond(stats))}
+        for icon, label, cond in REWARD_BADGES
+    ]

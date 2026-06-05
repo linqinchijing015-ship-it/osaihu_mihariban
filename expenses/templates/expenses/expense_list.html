@@ -1,7 +1,7 @@
 {% extends "expenses/base.html" %}
 {% load humanize %}
 
-{% block title %}買ったもの - osaihu_mihariban{% endblock %}
+{% block title %}買ったもの - お財布見張り番{% endblock %}
 
 {% block content %}
 {# スマホ専用：買った/我慢タブ。グラフ表示中(view=graph)は遷移先にも ?view=graph を引き継ぐ #}
@@ -35,6 +35,15 @@
       <div class="sub">{{ expenses|length }}件 ・ 我慢で浮いた額 <b>{{ saved_amount|intcomma }}円</b></div>
     </div>
 
+    {# ごほうびバッジ帯：我慢で解放される実績。買った画面では「次のごほうび」を見せて行動を促す #}
+    <div class="badge-strip{% if not badges %} empty{% endif %}">
+      {% for b in badges %}
+      <span class="b{% if not b.earned %} locked{% endif %}">
+        <span class="ico">{% if b.earned %}{{ b.icon }}{% else %}🔒{% endif %}</span>{{ b.label }}
+      </span>
+      {% endfor %}
+    </div>
+
     <a href="{% url 'expenses:add' %}" class="add-btn buy">＋ 買ったものを記録する</a>
 
     {% if expenses %}
@@ -47,6 +56,12 @@
           <span class="cat">{{ expense.get_category_display }}</span>
           <span class="date">{{ expense.created_at|date:"n/j" }}</span>
           <span class="amt">{{ expense.amount|intcomma }}円</span>
+          {# 後悔スコア（高いほど赤）。未採点(満足度未入力の旧データ)は「—」で薄く #}
+          {% if expense.regret_score is not None %}
+            <span class="score regret" title="後悔スコア">後悔 {{ expense.regret_score|floatformat:0 }}</span>
+          {% else %}
+            <span class="score none" title="満足度を入れると後悔スコアが付きます">—</span>
+          {% endif %}
           <span class="acts">
             <a href="{% url 'expenses:edit' expense.pk %}">編集</a>
             <a href="{% url 'expenses:delete' expense.pk %}" class="del">削除</a>
@@ -63,7 +78,7 @@
 
   </div>
 
-  {# 右カラム：カテゴリ別の円グラフ #}
+  {# 右カラム：カテゴリ別の円グラフ＋後悔スコアのサマリ #}
   <div class="col-graph">
     <div class="graph-card">
       <h2>何に使ったか（カテゴリ別）</h2>
@@ -71,6 +86,25 @@
         <canvas id="categoryChart" height="240"></canvas>
       {% else %}
         <p class="graph-empty">記録が増えると、ここに内訳の円グラフが出ます</p>
+      {% endif %}
+    </div>
+
+    {# グラフの下：後悔スコアのサマリ。採点済みが無ければ案内を出す #}
+    <div class="score-summary">
+      <h2>あなたの後悔スコア</h2>
+      {% if regret_avg is not None %}
+        <div class="grid">
+          <div class="cell regret">
+            <div class="lbl">平均</div>
+            <div class="num">{{ regret_avg|floatformat:0 }}</div>
+          </div>
+          <div class="cell regret">
+            <div class="lbl">いちばん後悔</div>
+            <div class="num">{{ regret_worst|floatformat:0 }}</div>
+          </div>
+        </div>
+      {% else %}
+        <p class="empty">満足度を入れて記録すると、<br>ここに後悔スコアが出ます</p>
       {% endif %}
     </div>
   </div>

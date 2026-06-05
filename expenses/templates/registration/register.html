@@ -1,13 +1,8 @@
 {% extends "expenses/base.html" %}
 
-{% block title %}新規登録 - osaihu_mihariban{% endblock %}
+{% block title %}新規登録 - お財布見張り番{% endblock %}
 
 {% block content %}
-{#
-  新規登録画面：ログインと同じ認証カード（.auth-* / base.html）で統一。
-  UserCreationForm をループで回し、各フィールドを .auth-field でラップして
-  ラベル・入力欄・ヘルプ文・エラーをトークン準拠の見た目に整える。
-#}
 <div class="auth-wrap">
   <div class="auth-card">
 

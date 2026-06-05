@@ -1,7 +1,7 @@
 {% extends "expenses/base.html" %}
 {% load humanize %}
 
-{% block title %}我慢したもの - osaihu_mihariban{% endblock %}
+{% block title %}我慢したもの - お財布見張り番{% endblock %}
 
 {% block content %}
 {# スマホ専用：買った/我慢タブ。グラフ表示中(view=graph)は遷移先にも ?view=graph を引き継ぐ #}
@@ -35,6 +35,15 @@
       <div class="sub">{{ nonexpenses|length }}回 ・ 今月 使った額 <b>{{ spent_amount|intcomma }}円</b></div>
     </div>
 
+    {# ごほうびバッジ帯：我慢が主役のこの画面では実績の中心。獲得済み {{ earned_count }} 個 #}
+    <div class="badge-strip{% if not badges %} empty{% endif %}">
+      {% for b in badges %}
+      <span class="b{% if not b.earned %} locked{% endif %}">
+        <span class="ico">{% if b.earned %}{{ b.icon }}{% else %}🔒{% endif %}</span>{{ b.label }}
+      </span>
+      {% endfor %}
+    </div>
+
     <a href="{% url 'expenses:non_add' %}" class="add-btn save">＋ 我慢したものを記録する</a>
 
     {% if nonexpenses %}
@@ -47,6 +56,12 @@
           <span class="cat">{{ item.get_category_display }}</span>
           <span class="date">{{ item.created_at|date:"n/j" }}</span>
           <span class="amt">{{ item.amount|intcomma }}円</span>
+          {# 我慢スコア（高いほど称賛＝橙）。未採点(我慢度未入力の旧データ)は「—」で薄く #}
+          {% if item.self_control_score is not None %}
+            <span class="score reward" title="我慢スコア">+{{ item.self_control_score|floatformat:0 }}</span>
+          {% else %}
+            <span class="score none" title="我慢度を入れるとスコアが付きます">—</span>
+          {% endif %}
           <span class="acts">
             <a href="{% url 'expenses:non_edit' item.pk %}">編集</a>
             <a href="{% url 'expenses:non_delete' item.pk %}" class="del">削除</a>
@@ -63,7 +78,7 @@
 
   </div>
 
-  {# 右カラム：カテゴリ別の円グラフ #}
+  {# 右カラム：カテゴリ別の円グラフ＋我慢スコアのサマリ #}
   <div class="col-graph">
     <div class="graph-card">
       <h2>何を我慢したか（カテゴリ別）</h2>
@@ -71,6 +86,25 @@
         <canvas id="categoryChart" height="240"></canvas>
       {% else %}
         <p class="graph-empty">記録が増えると、ここに内訳の円グラフが出ます</p>
+      {% endif %}
+    </div>
+
+    {# グラフの下：我慢スコアのサマリ。採点済みが無ければ案内を出す #}
+    <div class="score-summary">
+      <h2>あなたの我慢スコア</h2>
+      {% if control_avg is not None %}
+        <div class="grid">
+          <div class="cell reward">
+            <div class="lbl">平均</div>
+            <div class="num">{{ control_avg|floatformat:0 }}</div>
+          </div>
+          <div class="cell reward">
+            <div class="lbl">ベスト</div>
+            <div class="num">{{ control_best|floatformat:0 }}</div>
+          </div>
+        </div>
+      {% else %}
+        <p class="empty">我慢度を入れて記録すると、<br>ここに我慢スコアが出ます</p>
       {% endif %}
     </div>
   </div>

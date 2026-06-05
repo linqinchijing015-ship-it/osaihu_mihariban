@@ -7,12 +7,32 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.views.generic import CreateView
-from django.db.models import Sum
+from django.db.models import Sum, Max, Avg
 import json
 
 from .models import Expense, nonExpense, CATEGORY_COLORS
 from .forms import ExpenseForm, nonExpenseForm
-from .scoring import calc_regret_score, calc_endurance_score
+from .scoring import calc_regret_score, calc_endurance_score, reward_badges
+
+
+def _reward_context(user):
+    """ごほうびバッジ帯用の context を作る。
+
+    我慢（nonExpense）の実績からバッジ獲得状況を判定する。買った／我慢どちらの
+    一覧でも同じ帯を出すことで、買った画面では「我慢で解放されるごほうび」を
+    見せて行動を促す。
+    """
+    qs = nonExpense.objects.filter(user=user)
+    agg = qs.aggregate(saved=Sum("amount"), best=Max("self_control_score"))
+    badges = reward_badges(
+        count=qs.count(),
+        saved=agg["saved"] or 0,
+        best=agg["best"] or 0,
+    )
+    return {
+        "badges": badges,
+        "earned_count": sum(1 for b in badges if b["earned"]),
+    }
 
 def _category_chart_json(queryset, category_choices):
     """カテゴリ別の合計金額を、円グラフ用の JSON 文字列にして返す。
@@ -70,6 +90,12 @@ class ExpenseListView(LoginRequiredMixin, ListView):
         context["chart_data"] = _category_chart_json(self.get_queryset(), Expense.CATEGORY_CHOICES)
         # スマホの「記録/グラフ」表示状態を URL クエリで保持（seg 切替で遷移しても維持される）
         context["view"] = "graph" if self.request.GET.get("view") == "graph" else "main"
+        # 後悔スコアのサマリ（グラフ下に出す）。採点済み（満足度入力済み）のみを母数にする
+        score_agg = self.get_queryset().aggregate(avg=Avg("regret_score"), worst=Max("regret_score"))
+        context["regret_avg"] = score_agg["avg"]      # None なら未採点（テンプレ側で出し分け）
+        context["regret_worst"] = score_agg["worst"]
+        # ごほうびバッジ帯（我慢実績ベース。買った画面でも「次のごほうび」を見せる）
+        context.update(_reward_context(self.request.user))
         return context
     def get_queryset(self):
         # self.request.user → 今ログインしているユーザー
@@ -165,6 +191,12 @@ class nonExpenseListView(LoginRequiredMixin, ListView):
         context["chart_data"] = _category_chart_json(self.get_queryset(), nonExpense.CATEGORY_CHOICES)
         # スマホの「記録/グラフ」表示状態を URL クエリで保持（seg 切替で遷移しても維持される）
         context["view"] = "graph" if self.request.GET.get("view") == "graph" else "main"
+        # 我慢スコアのサマリ（グラフ下に出す）。採点済み（我慢度入力済み）のみを母数にする
+        score_agg = self.get_queryset().aggregate(avg=Avg("self_control_score"), best=Max("self_control_score"))
+        context["control_avg"] = score_agg["avg"]     # None なら未採点
+        context["control_best"] = score_agg["best"]
+        # ごほうびバッジ帯（我慢が主役のこの画面で実績として大きく見せる）
+        context.update(_reward_context(self.request.user))
         return context
     
     def get_queryset(self):

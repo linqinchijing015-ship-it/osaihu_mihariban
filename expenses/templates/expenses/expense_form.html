@@ -1,73 +1,52 @@
 {% extends "expenses/base.html" %}
 
 {% block title %}
-  {% if form.instance.pk %}支出を編集{% else %}支出を登録{% endif %} - osaihu_mihariban
+  {% if form.instance.pk %}支出を編集{% else %}支出を登録{% endif %} - お財布見張り番
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-6">
+<div class="form-wrap">
+  <div class="form-card">
 
-    <h1 class="h4 mb-4">
-      <!-- form.instance.pk があれば編集、なければ新規作成 -->
-      {% if form.instance.pk %}支出を編集{% else %}支出を登録{% endif %}
-    </h1>
+    <h1>🛍️ {% if form.instance.pk %}支出を編集{% else %}買ったものを記録{% endif %}</h1>
 
-    <!-- action="" で現在のURLにPOST送信 -->
-    <!-- {% csrf_token %} はセキュリティのために必須 -->
+    {# action="" で現在のURLにPOST送信。csrf_token は必須 #}
     <form method="post" action="">
       {% csrf_token %}
 
-      <!-- 品名 -->
-      <div class="mb-3">
-        <label class="form-label">品名</label>
+      <div class="form-row">
+        <label>品名</label>
         {{ form.name }}
-        <!-- バリデーションエラーがあれば表示 -->
-        {% if form.name.errors %}
-          <div class="text-danger">{{ form.name.errors }}</div>
-        {% endif %}
+        {% if form.name.errors %}<div class="text-danger">{{ form.name.errors|striptags }}</div>{% endif %}
       </div>
 
-      <!-- 金額 -->
-      <div class="mb-3">
-        <label class="form-label">金額（円）</label>
+      <div class="form-row">
+        <label>金額（円）</label>
         {{ form.amount }}
-        {% if form.amount.errors %}
-          <div class="text-danger">{{ form.amount.errors }}</div>
-        {% endif %}
+        {% if form.amount.errors %}<div class="text-danger">{{ form.amount.errors|striptags }}</div>{% endif %}
       </div>
 
-      <!-- カテゴリ -->
-      <div class="mb-3">
-        <label class="form-label">カテゴリ</label>
+      <div class="form-row">
+        <label>カテゴリ</label>
         {{ form.category }}
-        {% if form.category.errors %}
-          <div class="text-danger">{{ form.category.errors }}</div>
-        {% endif %}
+        {% if form.category.errors %}<div class="text-danger">{{ form.category.errors|striptags }}</div>{% endif %}
       </div>
 
-      <!-- 満足度 -->
-      <div class="mb-3">
-      <label class="form-label">満足度（1=不満 〜 5=満足）</label>
-      {{ form.satisfaction }}
-      {% if form.satisfaction.errors %}
-          <div class="text-danger">{{ form.satisfaction.errors }}</div>
-      {% endif %}
-      </div>
-      
-      <!-- メモ -->
-      <div class="mb-3">
-      <label class="form-label">メモ（任意）</label>
-      {{ form.memo }}
-      {% if form.memo.errors %}
-          <div class="text-danger">{{ form.memo.errors }}</div>
-      {% endif %}
+      <div class="form-row">
+        <label>満足度（1=不満 〜 5=満足）</label>
+        {{ form.satisfaction }}
+        {% if form.satisfaction.errors %}<div class="text-danger">{{ form.satisfaction.errors|striptags }}</div>{% endif %}
       </div>
 
-      <!-- 送信ボタン -->
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">保存</button>
-        <a href="{% url 'expenses:list' %}" class="btn btn-secondary">キャンセル</a>
+      <div class="form-row">
+        <label>メモ（任意）</label>
+        {{ form.memo }}
+        {% if form.memo.errors %}<div class="text-danger">{{ form.memo.errors|striptags }}</div>{% endif %}
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-save">保存する</button>
+        <a href="{% url 'expenses:list' %}" class="btn-cancel">キャンセル</a>
       </div>
 
     </form>

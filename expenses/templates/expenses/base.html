@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}osaihu_mihariban{% endblock %}</title>
+  <title>{% block title %}お財布見張り番{% endblock %}</title>
 
   <!-- Bootstrap 5 CSS CDN — npm や build pipeline は不要 -->
   <link
@@ -19,24 +19,30 @@
     /*
       デザイントークン（共通ルール）：色・角丸・影をここに1組だけ定義し、
       全要素がこれを参照する。個別にバラバラな値を書かないことで統一感を担保する。
-      トーン＝「柔らか・明るい」：薄い青みの背景・丸み・パステルの青を主役に。
+      トーン＝「ごほうびゲーム（B案）」：暖色のオレンジを主役に、我慢を得点・バッジで
+      ポジティブに称える。我慢の節約はゴールド系で「ごほうび感」を出す。
     */
     :root {
-      --bg: #eef2f9;            /* 画面全体の薄い青みグレー背景 */
+      --bg: #fff7ed;            /* 画面全体の温かいクリーム背景（orange-50） */
       --card: #ffffff;          /* カード地 */
-      --brand: #2563eb;         /* 主役色（買った）青 */
-      --brand-soft: #eaf1fe;    /* ブランド青の極薄（ホバー/アクセント地） */
-      --save: #16a34a;          /* 我慢の緑 */
-      --ink: #1e293b;           /* 文字 濃 */
-      --ink-mid: #64748b;       /* 文字 中 */
-      --ink-soft: #94a3b8;      /* 文字 薄 */
-      --line: #e8eef6;          /* 境界線 */
+      --brand: #f97316;         /* 主役色（買った）オレンジ（orange-500） */
+      --brand-soft: #fff1e3;    /* ブランド橙の極薄（ホバー/アクセント地） */
+      --save: #f59e0b;          /* 我慢のごほうびゴールド（amber-500） */
+      --ink: #431407;           /* 文字 濃（暖色寄りのこげ茶） */
+      --ink-mid: #9a3412;       /* 文字 中（焦がしオレンジ） */
+      --ink-soft: #c2925f;      /* 文字 薄（やわらかいキャラメル） */
+      --line: #fde7cf;          /* 境界線（うすいオレンジ） */
       --r-lg: 20px;             /* 角丸 大（ヒーロー/カード） */
       --r-md: 14px;             /* 角丸 中（リスト/ボタン） */
       --r-sm: 10px;             /* 角丸 小（タブ/小物） */
-      --shadow-sm: 0 1px 3px rgba(30,41,59,.04), 0 4px 12px rgba(30,41,59,.05);
-      --shadow-md: 0 8px 24px rgba(30,41,59,.08);
+      --shadow-sm: 0 1px 3px rgba(124,45,18,.05), 0 4px 12px rgba(124,45,18,.06);
+      --shadow-md: 0 8px 24px rgba(124,45,18,.10);
       --font: system-ui, "Hiragino Sans", "Yu Gothic", sans-serif;
+      /* ごほうびバッジ・スコアバッジ用 */
+      --regret: #dc2626;        /* 後悔スコア（高いほど赤＝注意） */
+      --regret-soft: #fee2e2;
+      --reward: #ea580c;        /* 我慢スコア・バッジの称賛色 */
+      --reward-soft: #ffedd5;
     }
     body { background: var(--bg); color: var(--ink); font-family: var(--font); }
 
@@ -46,7 +52,7 @@
       アイコンは絵文字でなくインライン SVG（白の財布）を使う。
     */
     .topbar { background: var(--brand);
-      box-shadow: 0 2px 10px rgba(37,99,235,.18); }
+      box-shadow: 0 2px 10px rgba(249,115,22,.22); }
     .topbar .brand { display: flex; align-items: center; gap: 7px;
       font-weight: 800; font-size: 17px; color: #fff;
       text-decoration: none; letter-spacing: .01em; }
@@ -86,7 +92,7 @@
       .col-main > .seg { display: none; }
 
       /* 記録／グラフ切替タブ */
-      .view-switch { display: flex; background: #e3e9f3; border-radius: var(--r-sm);
+      .view-switch { display: flex; background: #ffedd5; border-radius: var(--r-sm);
         padding: 4px; margin-bottom: 14px; }
       .view-switch button { flex: 1; text-align: center; padding: 9px 0; border: none;
         background: none; border-radius: 8px; font-weight: 600; font-size: 14px;
@@ -99,11 +105,32 @@
       .layout:not(.show-graph) .col-graph { display: none; }
 
       /*
-        スマホでもスクロール不要に：リストを「画面の残り高さ」に収めて枠内スクロール。
-        引く内訳: ナビ56 + container上下48 + 買った我慢タブ52 + 記録グラフタブ52
-        + ヒーロー120 + 記録ボタン52 + 余白マージン約30 ≒ 410px。
+        スマホでもスクロール不要に：上に積まれる固定要素を圧縮し、リストを
+        「画面の残り高さ」に収めて枠内スクロールする（ページ全体はスクロールさせない）。
+
+        圧縮の内訳:
+        ・ヒーロー：padding/数字を縮め 120→約86px
+        ・バッジ帯：折り返しをやめて横スクロール1行に固定（44px）
+        ・container 上下 padding を 48→24px に詰める（.py-4 を打ち消し）
+        引く内訳: ナビ56 + container上下24 + 買った我慢タブ48 + 記録グラフタブ48
+        + ヒーロー86 + バッジ帯40 + 記録ボタン48 + 余白マージン約26 ≒ 376px。
       */
-      .list { max-height: calc(100vh - 410px); }
+      .container.py-4 { padding-top: 12px; padding-bottom: 12px; }
+
+      /* ヒーローをスリム化（高さを稼ぐ） */
+      .hero { padding: 14px 18px 13px; margin-bottom: 12px; }
+      .hero .amount { font-size: 34px; margin: 3px 0 2px; }
+      .hero .amount small { font-size: 16px; }
+
+      /* バッジ帯：折り返さず横スクロール1行に固定（縦に伸びてはみ出すのを防ぐ） */
+      .badge-strip { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start;
+        margin: -2px 0 12px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+      .badge-strip .b { flex: none; }
+
+      /* 記録ボタンも少し詰める */
+      .add-btn { padding: 11px; margin-bottom: 12px; }
+
+      .list { max-height: calc(100vh - 376px); }
       /*
         グラフ表示時：カードは画面内に収めるが overflow:hidden で凡例を切らないよう、
         canvas 側の高さを抑えてカード全体（ドーナツ＋下の凡例）が収まるようにする。
@@ -120,12 +147,12 @@
     .graph-empty { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 24px 0; }
 
     /* セグメントタブ：今どっちを見ているか＋切替を兼ねる（中身は2URLへのリンク） */
-    .seg { display: flex; background: #e3e9f3; border-radius: var(--r-sm); padding: 4px; margin-bottom: 14px; }
+    .seg { display: flex; background: #ffedd5; border-radius: var(--r-sm); padding: 4px; margin-bottom: 14px; }
     .seg a { flex: 1; text-align: center; padding: 9px 0; border-radius: 8px; text-decoration: none;
       font-weight: 600; font-size: 14px; color: var(--ink-mid); transition: .15s; }
     .seg a.active { background: var(--card); box-shadow: var(--shadow-sm); }
-    .seg a.active.buy { color: var(--brand); }   /* 買ったもの = 青 */
-    .seg a.active.save { color: var(--save); }   /* 我慢したもの = 緑 */
+    .seg a.active.buy { color: var(--brand); }   /* 買ったもの = オレンジ */
+    .seg a.active.save { color: var(--save); }   /* 我慢したもの = ごほうびゴールド */
     .seg a .cnt { display: block; font-size: 11px; font-weight: 500; opacity: .7; margin-top: 1px; }
 
     /*
@@ -135,10 +162,10 @@
     */
     .hero { border-radius: var(--r-lg); padding: 22px 24px 20px; color: #fff; text-align: center;
       margin-bottom: 16px; }
-    .hero.buy { background: linear-gradient(135deg, #5b9bf8, #2563eb);
-      box-shadow: 0 12px 28px rgba(37,99,235,.22); }
-    .hero.save { background: linear-gradient(135deg, #4ade80, #16a34a);
-      box-shadow: 0 12px 28px rgba(22,163,74,.22); }
+    .hero.buy { background: var(--brand);
+      box-shadow: 0 12px 28px rgba(249,115,22,.26); }
+    .hero.save { background: var(--save);
+      box-shadow: 0 12px 28px rgba(245,158,11,.28); }
     /* ラベルは控えめに（脇役）：小さく・字間を空け・やや透過。主役の数字を引き立てる */
     .hero .lbl { font-size: 12px; opacity: .9; letter-spacing: .04em; font-weight: 600; }
     /* 主役の数字：大きく・締まった字間で「上質な数字」に。weight と size で階層を立てる */
@@ -153,8 +180,8 @@
     .add-btn { display: block; width: 100%; text-align: center; padding: 13px; border-radius: var(--r-md);
       color: #fff; font-weight: 700; font-size: 15px; text-decoration: none; margin-bottom: 14px;
       transition: .15s; }
-    .add-btn.buy { background: var(--brand); box-shadow: 0 6px 16px rgba(37,99,235,.24); }
-    .add-btn.save { background: var(--save); box-shadow: 0 6px 16px rgba(22,163,74,.24); }
+    .add-btn.buy { background: var(--brand); box-shadow: 0 6px 16px rgba(249,115,22,.26); }
+    .add-btn.save { background: var(--save); box-shadow: 0 6px 16px rgba(245,158,11,.28); }
     .add-btn:hover { transform: translateY(-1px); filter: brightness(1.04); }
 
     .section-h { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin: 0 0 6px 4px; }
@@ -173,11 +200,12 @@
 
       高さは「画面の全高(100vh)から、上に積まれる固定要素を引いた残り」にする。
       引く内訳（おおよそ）: ナビバー56px + container上下padding48px
-      + タブ48px + ヒーロー120px + 記録ボタン52px + 余白マージン約36px ≒ 360px。
+      + タブ48px + ヒーロー120px + バッジ帯44px + 記録ボタン52px + 余白マージン約36px ≒ 404px。
       これで vh 固定だと起きていた「ナビバー分だけページがはみ出す」を解消する。
+      バッジ帯を足したぶん引き算を増やし、ページ全体スクロールが出ないようにする。
     */
     .list { background: var(--card); border-radius: var(--r-lg); overflow-y: auto;
-      max-height: calc(100vh - 360px); box-shadow: var(--shadow-sm); }
+      max-height: calc(100vh - 404px); box-shadow: var(--shadow-sm); }
     .item { display: flex; align-items: center; gap: 11px; padding: 12px 16px;
       border-bottom: 1px solid var(--line); transition: background .12s; }
     .item:last-child { border-bottom: none; }
@@ -199,6 +227,86 @@
     .hint { text-align: center; color: var(--ink-soft); font-size: 13px; margin-top: 8px; }
 
     /*
+      ===== B案（ごほうびゲーム）専用パーツ =====
+      ・score：リスト各行に出すスコアバッジ。買った=後悔(赤)、我慢=ごほうび(橙)。
+      ・badge-strip：ヒーロー下の獲得バッジ帯。我慢の積み上げを「実績」として称える。
+    */
+    /* リスト行のスコアバッジ（金額の隣に小さく） */
+    .item .score { flex: none; font-size: 11px; font-weight: 800; padding: 2px 8px;
+      border-radius: 999px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+    .item .score.regret { background: var(--regret-soft); color: var(--regret); }   /* 後悔＝注意の赤 */
+    .item .score.reward { background: var(--reward-soft); color: var(--reward); }   /* 我慢＝称賛の橙 */
+    .item .score.none { background: #f5f0ea; color: var(--ink-soft); font-weight: 600; }  /* 未採点(旧データ) */
+
+    /*
+      スコアサマリ：グラフカードの下に置く。後悔（買った）／我慢（我慢した）の
+      平均・最大を大きな数字で見せる「今のあなたのスコア」パネル。
+    */
+    .score-summary { background: var(--card); border-radius: var(--r-lg); padding: 16px 18px;
+      box-shadow: var(--shadow-sm); margin-top: 16px; }
+    .score-summary h2 { font-size: 14px; font-weight: 700; color: var(--ink); margin: 0 0 12px; }
+    .score-summary .grid { display: flex; gap: 12px; }
+    .score-summary .cell { flex: 1; text-align: center; padding: 12px 8px; border-radius: var(--r-md);
+      background: var(--brand-soft); }
+    .score-summary .cell.reward { background: var(--reward-soft); }
+    .score-summary .cell .lbl { font-size: 11px; font-weight: 600; color: var(--ink-mid);
+      letter-spacing: .02em; }
+    .score-summary .cell .num { font-size: 30px; font-weight: 800; letter-spacing: -.02em;
+      line-height: 1.1; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .score-summary .cell.regret .num { color: var(--regret); }
+    .score-summary .cell.reward .num { color: var(--reward); }
+    .score-summary .empty { color: var(--ink-soft); font-size: 12.5px; text-align: center;
+      padding: 8px 0; line-height: 1.6; }
+
+    /* 獲得バッジ帯：ヒーロー下に丸ピルで並べる。未獲得は薄くロックして「次の目標」を見せる */
+    .badge-strip { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;
+      margin: -4px 0 16px; }
+    .badge-strip .b { font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+      background: #fff; border: 1px solid var(--line); color: var(--reward);
+      box-shadow: var(--shadow-sm); display: inline-flex; align-items: center; gap: 4px; }
+    .badge-strip .b.locked { color: var(--ink-soft); background: #fbf6f0; border-style: dashed;
+      box-shadow: none; opacity: .85; }
+    .badge-strip .b .ico { font-size: 12px; line-height: 1; }
+    .badge-strip.empty { display: none; }
+
+    /*
+      登録／編集フォーム：Bootstrap 素のフォーム（既定ボタン・素の input）をやめ、
+      デザイントークン準拠のカードに整える。auth カードと同じ世界観で統一する。
+      フォーム要素（input/select/textarea）は Django が widget で付ける class に依らず
+      要素セレクタで効かせ、暖色テーマのフォーカスリングを当てる。
+    */
+    .form-wrap { max-width: 460px; margin: 0 auto; }
+    .form-card { background: var(--card); border-radius: var(--r-lg);
+      box-shadow: var(--shadow-md); padding: 28px 26px; }
+    .form-card h1 { font-size: 19px; font-weight: 800; color: var(--ink); margin: 0 0 20px;
+      display: flex; align-items: center; gap: 8px; }
+    .form-row { margin-bottom: 16px; }
+    .form-row label, .form-row .form-label { display: block; font-size: 12px; font-weight: 600;
+      color: var(--ink-mid); margin-bottom: 6px; letter-spacing: .02em; }
+    /* Django widget が吐く input/select/textarea を要素単位で整える（Bootstrap class より後で勝つ） */
+    .form-card input, .form-card select, .form-card textarea {
+      width: 100%; padding: 11px 13px; font-size: 15px; font-family: var(--font);
+      border: 1.5px solid var(--line); border-radius: var(--r-md);
+      background: #fffbf7; color: var(--ink); transition: .15s; outline: none; }
+    .form-card input:focus, .form-card select:focus, .form-card textarea:focus {
+      border-color: var(--brand); background: #fff; box-shadow: 0 0 0 3px rgba(249,115,22,.14); }
+    .form-card textarea { resize: vertical; min-height: 64px; }
+    .form-card .text-danger, .form-card .err { font-size: 12px; color: #b91c1c; margin-top: 5px; }
+    /* アクション行：保存（主役・塗り）＋キャンセル（控えめ・枠線） */
+    .form-actions { display: flex; gap: 10px; margin-top: 22px; }
+    .form-actions .btn-save { flex: 1; padding: 12px; border: none; border-radius: var(--r-md);
+      background: var(--brand); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
+      box-shadow: 0 6px 16px rgba(249,115,22,.26); transition: .15s; text-align: center;
+      text-decoration: none; }
+    .form-actions .btn-save.save { background: var(--save); box-shadow: 0 6px 16px rgba(245,158,11,.28); }
+    .form-actions .btn-save:hover { transform: translateY(-1px); filter: brightness(1.04); }
+    .form-actions .btn-cancel { padding: 12px 18px; border-radius: var(--r-md);
+      border: 1.5px solid var(--line); background: #fff; color: var(--ink-mid);
+      font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; transition: .15s; }
+    .form-actions .btn-cancel:hover { background: var(--brand-soft); color: var(--brand); }
+
+    /*
       認証画面（ログイン／新規登録）共通：中央に浮かぶカードにまとめ、本文と同じ
       デザイントークンで統一する。Bootstrap 素フォームの「余白だけ多い」状態の解消。
     */
@@ -208,9 +316,9 @@
       border-radius: var(--r-lg); box-shadow: var(--shadow-md); padding: 32px 30px; }
     .auth-brand { text-align: center; margin-bottom: 24px; }
     .auth-brand .badge-ico { width: 54px; height: 54px; border-radius: 16px;
-      background: linear-gradient(135deg, #5b9bf8, var(--brand));
+      background: var(--brand);
       display: inline-flex; align-items: center; justify-content: center;
-      box-shadow: 0 8px 20px rgba(37,99,235,.28); margin-bottom: 12px; }
+      box-shadow: 0 8px 20px rgba(249,115,22,.30); margin-bottom: 12px; }
     .auth-brand .badge-ico svg { width: 28px; height: 28px; color: #fff; }
     .auth-brand h1 { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0; }
     .auth-brand p { font-size: 13px; color: var(--ink-mid); margin: 4px 0 0; }
@@ -220,15 +328,15 @@
     /* input は直書きと、Django フォームが吐く input 両方に効くよう要素セレクタで指定 */
     .auth-field input { width: 100%; padding: 12px 14px; font-size: 15px;
       border: 1.5px solid var(--line); border-radius: var(--r-md);
-      background: #fbfcfe; color: var(--ink); transition: .15s; outline: none; }
+      background: #fffbf7; color: var(--ink); transition: .15s; outline: none; }
     .auth-field input:focus { border-color: var(--brand); background: #fff;
-      box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+      box-shadow: 0 0 0 3px rgba(249,115,22,.14); }
     .auth-field input::placeholder { color: var(--ink-soft); }
     .auth-field .help { font-size: 11px; color: var(--ink-soft); margin-top: 5px; line-height: 1.5; }
     .auth-field .err { font-size: 12px; color: #b91c1c; margin-top: 5px; }
     .auth-submit { width: 100%; padding: 13px; border: none; border-radius: var(--r-md);
       background: var(--brand); color: #fff; font-weight: 700; font-size: 15px;
-      cursor: pointer; box-shadow: 0 6px 16px rgba(37,99,235,.24); transition: .15s; }
+      cursor: pointer; box-shadow: 0 6px 16px rgba(249,115,22,.26); transition: .15s; }
     .auth-submit:hover { transform: translateY(-1px); filter: brightness(1.04); }
     .auth-error { background: #fef2f2; color: #b91c1c; border-radius: var(--r-md);
       padding: 10px 14px; font-size: 13px; margin-bottom: 16px; }
