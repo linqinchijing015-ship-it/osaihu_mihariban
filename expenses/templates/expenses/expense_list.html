@@ -95,7 +95,7 @@
     <div class="graph-card">
       <h2>何に使ったか（カテゴリ別）</h2>
       {% if expenses %}
-        <canvas id="categoryChart" height="240"></canvas>
+        <canvas id="categoryChart" height="200"></canvas>
       {% else %}
         <p class="graph-empty">記録が増えると、ここに内訳の円グラフが出ます</p>
       {% endif %}
@@ -150,8 +150,9 @@
     options: {
       plugins: { legend: { position: "bottom", labels: { font: { size: 12 } } } },
       cutout: "60%",
-      // 切替で display:none → 表示に戻したとき箱サイズに追従させる
-      responsive: true, maintainAspectRatio: true,
+      // 切替で display:none → 表示に戻したとき箱サイズに追従させる。
+      // PCでは右カラムを画面内に収めるため、アスペクト比固定をやめて箱の高さに従わせる。
+      responsive: true, maintainAspectRatio: false,
     },
   });
 </script>

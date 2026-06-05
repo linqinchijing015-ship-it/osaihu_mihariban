@@ -73,7 +73,16 @@
     */
     .layout { max-width: 1040px; margin: 0 auto; display: grid; gap: 24px;
       grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }
-    .col-graph { position: sticky; top: 16px; }  /* スクロールしても右に追従 */
+    .col-graph { position: sticky; top: 16px;
+      /* PC：右カラム（グラフ＋節約力＋サマリ）を画面内に収め、ページ全体スクロールを出さない。
+         左の .list と同じく「画面の残り高さ」に収める。引く内訳: ナビ56+container上下48+余白約16。 */
+      max-height: calc(100vh - 120px); display: flex; flex-direction: column; gap: 16px; }
+    /* グラフカードは余った高さを吸収し、canvas はカード内で縮む（下の固定2枠を優先表示）。
+       極端に潰れて読めなくならないよう最小高さ(タイトル＋ドーナツ＋凡例)を確保する。 */
+    .col-graph .graph-card { flex: 1 1 auto; min-height: 200px; display: flex; flex-direction: column; }
+    .col-graph .graph-card canvas { flex: 1 1 auto; min-height: 0; max-height: 100%; }
+    /* 節約力・サマリは縮めない（数字が読めるよう固定） */
+    .col-graph .net-score, .col-graph .score-summary { flex: none; margin-top: 0; }
 
     /* スマホ専用要素：PC では隠す（切替タブ／スマホ用の買った我慢タブ）。
        .seg-mobile は class="seg seg-mobile" なので .seg(display:flex) と詳細度が並ぶ。
@@ -84,7 +93,10 @@
     @media (max-width: 991px) {
       /* スマホは1カラム。両方を縦積みにせず、view-switch タブで片方だけ表示する */
       .layout { grid-template-columns: 1fr; }
-      .col-graph { position: static; }
+      /* PC用の右カラム高さ制約・flex はスマホでは解除（スマホ側の専用ルールに任せる） */
+      .col-graph { position: static; max-height: none; display: block; }
+      .col-graph .graph-card { min-height: 0; display: block; }
+      .col-graph .net-score, .col-graph .score-summary { margin-top: 16px; }
 
       /* 買った/我慢タブをスマホでは上部共通エリアに出す（グラフ表示時も残るよう col-main の外） */
       .seg.seg-mobile { display: flex; }

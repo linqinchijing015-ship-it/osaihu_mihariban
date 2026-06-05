@@ -93,7 +93,7 @@
     <div class="graph-card">
       <h2>何を我慢したか（カテゴリ別）</h2>
       {% if nonexpenses %}
-        <canvas id="categoryChart" height="240"></canvas>
+        <canvas id="categoryChart" height="200"></canvas>
       {% else %}
         <p class="graph-empty">記録が増えると、ここに内訳の円グラフが出ます</p>
       {% endif %}
@@ -148,7 +148,8 @@
     options: {
       plugins: { legend: { position: "bottom", labels: { font: { size: 12 } } } },
       cutout: "60%",
-      responsive: true, maintainAspectRatio: true,
+      // PCでは右カラムを画面内に収めるため、アスペクト比固定をやめて箱の高さに従わせる
+      responsive: true, maintainAspectRatio: false,
     },
   });
 </script>
