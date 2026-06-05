@@ -12,7 +12,7 @@ import json
 
 from .models import Expense, nonExpense, CATEGORY_COLORS
 from .forms import ExpenseForm, nonExpenseForm
-
+from .scoring import calc_regret_score, calc_endurance_score
 
 def _category_chart_json(queryset, category_choices):
     """カテゴリ別の合計金額を、円グラフ用の JSON 文字列にして返す。
@@ -92,6 +92,14 @@ class ExpenseCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         # 保存前にユーザーを自動でセット
         form.instance.user = self.request.user
+        # 満足度が入力されていれば後悔スコアを自動計算
+        satisfaction = form.cleaned_data.get("satisfaction")
+        if satisfaction:
+            form.instance.regret_score = calc_regret_score(
+                amount=form.cleaned_data["amount"],
+                satisfaction=satisfaction,
+                category=form.cleaned_data["category"],
+            )
         return super().form_valid(form)
 
 
@@ -110,6 +118,16 @@ class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_queryset(self):
         return Expense.objects.filter(user=self.request.user)
+    def form_valid(self, form):
+        # 編集時もスコアを再計算
+        satisfaction = form.cleaned_data.get("satisfaction")
+        if satisfaction:
+            form.instance.regret_score = calc_regret_score(
+                amount=form.cleaned_data["amount"],
+                satisfaction=satisfaction,
+                category=form.cleaned_data["category"],
+            )
+        return super().form_valid(form)
 
 
 class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
@@ -162,6 +180,14 @@ class nonExpenseCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.user = self.request.user
+        # 我慢度が入力されていれば我慢スコアを自動計算
+        endurance = form.cleaned_data.get("endurance")
+        if endurance:
+            form.instance.endurance_score = calc_endurance_score(
+                amount=form.cleaned_data["amount"],
+                endurance=endurance,
+                category=form.cleaned_data["category"],
+            )
         return super().form_valid(form)
 
 class nonExpenseUpdateView(LoginRequiredMixin, UpdateView):
@@ -174,6 +200,16 @@ class nonExpenseUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_queryset(self):
         return nonExpense.objects.filter(user=self.request.user)
+    def form_valid(self, form):
+        endurance = form.cleaned_data.get("endurance")
+        if endurance:
+            form.instance.self_control_score = calc_endurance_score(
+                amount=form.cleaned_data["amount"],
+                endurance=endurance,
+                category=form.cleaned_data["category"],
+            )
+        return super().form_valid(form)
+
 
 
 class nonExpenseDeleteView(LoginRequiredMixin, DeleteView):

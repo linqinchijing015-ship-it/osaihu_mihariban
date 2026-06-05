@@ -37,6 +37,20 @@ class Expense(models.Model):
         choices=CATEGORY_CHOICES,
         verbose_name="カテゴリ",
     )
+
+    #満足度を表すフィールドを追加
+    SATISFACTION_CHOICES = [(i, str(i)) for i in range(1, 6)]
+    satisfaction = models.IntegerField(
+    null=True,
+    blank=True,
+    choices=SATISFACTION_CHOICES,
+    verbose_name="満足度",
+    )
+    memo = models.TextField(
+    blank=True,
+    verbose_name="メモ",
+    )
+
     # 次フェーズで scoring.py が埋める
     regret_score = models.FloatField(
         null=True,
@@ -83,6 +97,21 @@ class nonExpense(models.Model):
         choices=CATEGORY_CHOICES,
         verbose_name="カテゴリ",
     )
+
+    #我慢の度合いを表すフィールドを追加
+    ENDURANCE_CHOICES = [(i, str(i)) for i in range(1, 6)]
+
+    endurance = models.IntegerField(
+    null=True,
+    blank=True,
+    choices=ENDURANCE_CHOICES,
+    verbose_name="我慢度",
+    )
+    memo = models.TextField(
+    blank=True,
+    verbose_name="メモ",
+    )
+    
     self_control_score = models.FloatField(
         null=True,
         blank=True,
