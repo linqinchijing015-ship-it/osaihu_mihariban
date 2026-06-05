@@ -7,12 +7,52 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.views.generic import CreateView
-from django.db.models import Sum
+from django.db.models import Sum, Max, Avg, Count, Q
 import json
 
 from .models import Expense, nonExpense, CATEGORY_COLORS
 from .forms import ExpenseForm, nonExpenseForm
-from .scoring import calc_regret_score, calc_endurance_score
+from .scoring import (
+    calc_regret_score, calc_endurance_score, reward_badges, calc_net_score,
+    REGRET_OK_MAX, REGRET_WARN_MAX,
+)
+
+
+def _reward_context(user):
+    """ごほうびバッジ帯＋節約力スコア用の context を作る。
+
+    節約力スコア（我慢スコア総計 − 後悔スコア総計）と、我慢の実績からバッジ獲得状況を
+    判定する。買った／我慢どちらの一覧でも同じ帯・同じ総合スコアを出すことで、
+    どちらの画面からでも「今の節約力」と「次に解放されるごほうび」が見える。
+    """
+    non_qs = nonExpense.objects.filter(user=user)
+    exp_qs = Expense.objects.filter(user=user)
+    non_agg = non_qs.aggregate(saved=Sum("amount"), control_total=Sum("self_control_score"))
+    scored = exp_qs.filter(regret_score__isnull=False)
+    exp_agg = scored.aggregate(
+        regret_total=Sum("regret_score"),
+        buy=Count("id"),
+        ok=Count("id", filter=Q(regret_score__lte=REGRET_OK_MAX)),
+        regret=Count("id", filter=Q(regret_score__gt=REGRET_WARN_MAX)),
+    )
+
+    net = calc_net_score(
+        regret_total=exp_agg["regret_total"] or 0,
+        control_total=non_agg["control_total"] or 0,
+    )
+    badges = reward_badges(
+        count=non_qs.count(),
+        saved=non_agg["saved"] or 0,
+        net=net,
+        buy=exp_agg["buy"] or 0,
+        ok=exp_agg["ok"] or 0,
+        regret=exp_agg["regret"] or 0,
+    )
+    return {
+        "badges": badges,
+        "earned_count": len(badges),
+        "net_score": net,
+    }
 
 def _category_chart_json(queryset, category_choices):
     """カテゴリ別の合計金額を、円グラフ用の JSON 文字列にして返す。
@@ -70,6 +110,20 @@ class ExpenseListView(LoginRequiredMixin, ListView):
         context["chart_data"] = _category_chart_json(self.get_queryset(), Expense.CATEGORY_CHOICES)
         # スマホの「記録/グラフ」表示状態を URL クエリで保持（seg 切替で遷移しても維持される）
         context["view"] = "graph" if self.request.GET.get("view") == "graph" else "main"
+        # 後悔スコアのサマリ（グラフ下に出す）。「平均/最大」だと否定的なので、
+        # 「納得できた買い物／後悔ぎみの買い物」の件数に変えて全否定感を消す。
+        # 採点済み（満足度入力済み）のみを母数にする。
+        scored = self.get_queryset().filter(regret_score__isnull=False)
+        agg = scored.aggregate(
+            scored_count=Count("id"),
+            ok=Count("id", filter=Q(regret_score__lte=REGRET_OK_MAX)),
+            regret=Count("id", filter=Q(regret_score__gt=REGRET_WARN_MAX)),
+        )
+        context["scored_count"] = agg["scored_count"]   # 0 なら未採点（テンプレで案内）
+        context["ok_count"] = agg["ok"]                 # 納得できた買い物
+        context["regret_count"] = agg["regret"]         # 後悔ぎみの買い物
+        # ごほうびバッジ帯（我慢実績ベース。買った画面でも「次のごほうび」を見せる）
+        context.update(_reward_context(self.request.user))
         return context
     def get_queryset(self):
         # self.request.user → 今ログインしているユーザー
@@ -165,6 +219,12 @@ class nonExpenseListView(LoginRequiredMixin, ListView):
         context["chart_data"] = _category_chart_json(self.get_queryset(), nonExpense.CATEGORY_CHOICES)
         # スマホの「記録/グラフ」表示状態を URL クエリで保持（seg 切替で遷移しても維持される）
         context["view"] = "graph" if self.request.GET.get("view") == "graph" else "main"
+        # 我慢スコアのサマリ（グラフ下に出す）。採点済み（我慢度入力済み）のみを母数にする
+        score_agg = self.get_queryset().aggregate(avg=Avg("self_control_score"), best=Max("self_control_score"))
+        context["control_avg"] = score_agg["avg"]     # None なら未採点
+        context["control_best"] = score_agg["best"]
+        # ごほうびバッジ帯（我慢が主役のこの画面で実績として大きく見せる）
+        context.update(_reward_context(self.request.user))
         return context
     
     def get_queryset(self):

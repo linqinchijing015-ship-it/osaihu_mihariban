@@ -4,11 +4,13 @@ from django.contrib.auth.models import User  # 追加
 # カテゴリコードごとの固定色。買った/我慢どちらの画面でも・並び順が変わっても
 # 「食費は常にこの色」になるよう、カテゴリと色を1対1で固定する。
 # グラフ（views）とカード左のドット（テンプレート）の両方がこれを参照する。
+# B案（ごほうびゲーム）の暖色テーマに合わせ、4カテゴリを「黄→赤」の暖色グラデで配色。
+# 嗜好品ほど赤（注意）に寄せ、生活必需品ほど黄（穏やか）にして直感と一致させる。
 CATEGORY_COLORS = {
-    "food":    "#2563eb",  # 食費・日用品 = 青
-    "apparel": "#16a34a",  # 衣服・書籍 = 緑
-    "gadget":  "#f59e0b",  # ガジェット・趣味 = 橙
-    "luxury":  "#dc2626",  # 嗜好品・課金・コンビニ = 赤
+    "food":    "#fbbf24",  # 食費・日用品 = アンバー（穏やか）
+    "apparel": "#fb923c",  # 衣服・書籍 = ライトオレンジ
+    "gadget":  "#f97316",  # ガジェット・趣味 = オレンジ
+    "luxury":  "#dc2626",  # 嗜好品・課金・コンビニ = 赤（注意）
 }
 
 
@@ -71,6 +73,13 @@ class Expense(models.Model):
     def category_color(self):
         # カード左のドット用。未知カテゴリは灰
         return CATEGORY_COLORS.get(self.category, "#9ca3af")
+
+    @property
+    def regret_level(self):
+        # 後悔スコアの3段階分類（納得/ふつう/後悔ぎみ）。テンプレでバッジ出し分けに使う。
+        # import をトップに置くと循環参照しないが、用途が限定的なので局所 import にする。
+        from .scoring import regret_level
+        return regret_level(self.regret_score)
 
 
 # 追加: 我慢した物を表すモデル

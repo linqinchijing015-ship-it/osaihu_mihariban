@@ -1,12 +1,8 @@
 {% extends "expenses/base.html" %}
 
-{% block title %}ログイン - osaihu_mihariban{% endblock %}
+{% block title %}ログイン - お財布見張り番{% endblock %}
 
 {% block content %}
-{#
-  ログイン画面：認証カード共通スタイル（.auth-* / base.html に定義）を使い、
-  中央に浮かぶカードにまとめる。新規登録画面と同じ構造で統一。
-#}
 <div class="auth-wrap">
   <div class="auth-card">
 
@@ -29,8 +25,7 @@
 
     <form method="post" action="">
       {% csrf_token %}
-      {# 未ログインで弾かれた元URL(?next=)を引き継ぎ、ログイン後その画面に戻す。
-         これが無いと next が無視され LOGIN_REDIRECT_URL に固定で飛んでしまう。 #}
+      {# 未ログインで弾かれた元URL(?next=)を引き継ぎ、ログイン後その画面に戻す #}
       <input type="hidden" name="next" value="{{ next }}">
       <div class="auth-field">
         <label>ユーザー名</label>

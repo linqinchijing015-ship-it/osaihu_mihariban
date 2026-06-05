@@ -1,7 +1,7 @@
 {% extends "expenses/base.html" %}
 {% load humanize %}
 
-{% block title %}買ったもの - osaihu_mihariban{% endblock %}
+{% block title %}買ったもの - お財布見張り番{% endblock %}
 
 {% block content %}
 {# スマホ専用：買った/我慢タブ。グラフ表示中(view=graph)は遷移先にも ?view=graph を引き継ぐ #}
@@ -35,23 +35,50 @@
       <div class="sub">{{ expenses|length }}件 ・ 我慢で浮いた額 <b>{{ saved_amount|intcomma }}円</b></div>
     </div>
 
+    {# ごほうびバッジ帯：我慢で解放される実績。買った画面では「次のごほうび」を見せて行動を促す #}
+    <div class="badge-strip{% if not badges %} empty{% endif %}">
+      {% for b in badges %}
+      <span class="b {{ b.kind }}"><span class="ico">{{ b.icon }}</span>{{ b.label }}</span>
+      {% endfor %}
+    </div>
+
     <a href="{% url 'expenses:add' %}" class="add-btn buy">＋ 買ったものを記録する</a>
 
     {% if expenses %}
       {# リスト型（1パネルに行を詰める）。1段組み・薄padding・ゼブラで密度最大化 #}
       <div class="list">
         {% for expense in expenses %}
-        <div class="item">
+        {# 行クリックで詳細モーダルを開く。data-* を base.html の JS が読む。kind=buy（ヘッダ橙）/スコアは3段階判定 #}
+        {% with lv=expense.regret_level %}
+        <div class="item"
+             data-kind="buy"
+             data-name="{{ expense.name }}"
+             data-amount="{{ expense.amount|intcomma }}"
+             data-category="{{ expense.get_category_display }}"
+             data-rate="{{ expense.satisfaction|default_if_none:'' }}"
+             data-judge="{% if lv %}{{ lv.icon }} {{ lv.label }}（{{ expense.regret_score|floatformat:0 }}）{% endif %}"
+             data-judge-kind="{% if lv %}{{ lv.key }}{% else %}none{% endif %}"
+             data-date="{{ expense.created_at|date:'Y年n月j日' }}"
+             data-memo="{{ expense.memo }}"
+             data-edit-url="{% url 'expenses:edit' expense.pk %}"
+             data-del-url="{% url 'expenses:delete' expense.pk %}">
           <span class="dot" style="background: {{ expense.category_color }}"></span>
           <span class="name">{{ expense.name }}</span>
           <span class="cat">{{ expense.get_category_display }}</span>
           <span class="date">{{ expense.created_at|date:"n/j" }}</span>
           <span class="amt">{{ expense.amount|intcomma }}円</span>
+          {# 後悔スコアを3段階で意味づけ（納得/ふつう/後悔ぎみ）。低スコアは「納得」として肯定 #}
+          {% if lv %}
+            <span class="score {{ lv.key }}" title="後悔スコア {{ expense.regret_score|floatformat:0 }}">{{ lv.icon }} {{ lv.label }}</span>
+          {% else %}
+            <span class="score none" title="満足度を入れると判定できます">—</span>
+          {% endif %}
           <span class="acts">
             <a href="{% url 'expenses:edit' expense.pk %}">編集</a>
             <a href="{% url 'expenses:delete' expense.pk %}" class="del">削除</a>
           </span>
         </div>
+        {% endwith %}
         {% endfor %}
       </div>
 
@@ -63,14 +90,40 @@
 
   </div>
 
-  {# 右カラム：カテゴリ別の円グラフ #}
+  {# 右カラム：カテゴリ別の円グラフ＋後悔スコアのサマリ #}
   <div class="col-graph">
     <div class="graph-card">
       <h2>何に使ったか（カテゴリ別）</h2>
       {% if expenses %}
-        <canvas id="categoryChart" height="240"></canvas>
+        <canvas id="categoryChart" height="200"></canvas>
       {% else %}
         <p class="graph-empty">記録が増えると、ここに内訳の円グラフが出ます</p>
+      {% endif %}
+    </div>
+
+    {# 総合：節約力スコア（我慢スコア総計 − 後悔スコア総計）。プラスなら我慢が勝っている #}
+    <div class="net-score">
+      <div class="lbl">節約力スコア</div>
+      <div class="num{% if net_score < 0 %} minus{% endif %}">{{ net_score|floatformat:0 }}</div>
+      <div class="cap">我慢で稼いだ点 − 後悔した点</div>
+    </div>
+
+    {# グラフの下：買い物の内訳サマリ。納得できた件数を肯定的に見せ、後悔ぎみだけ注意として並べる #}
+    <div class="score-summary">
+      <h2>あなたの買い物</h2>
+      {% if scored_count %}
+        <div class="grid">
+          <div class="cell ok">
+            <div class="lbl">納得できた</div>
+            <div class="num">{{ ok_count }}<small style="font-size:14px">件</small></div>
+          </div>
+          <div class="cell regret">
+            <div class="lbl">後悔ぎみ</div>
+            <div class="num">{{ regret_count }}<small style="font-size:14px">件</small></div>
+          </div>
+        </div>
+      {% else %}
+        <p class="empty">満足度を入れて記録すると、<br>納得できた買い物がここに出ます</p>
       {% endif %}
     </div>
   </div>
@@ -97,8 +150,9 @@
     options: {
       plugins: { legend: { position: "bottom", labels: { font: { size: 12 } } } },
       cutout: "60%",
-      // 切替で display:none → 表示に戻したとき箱サイズに追従させる
-      responsive: true, maintainAspectRatio: true,
+      // 切替で display:none → 表示に戻したとき箱サイズに追従させる。
+      // PCでは右カラムを画面内に収めるため、アスペクト比固定をやめて箱の高さに従わせる。
+      responsive: true, maintainAspectRatio: false,
     },
   });
 </script>
