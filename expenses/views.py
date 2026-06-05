@@ -183,7 +183,9 @@ class nonExpenseCreateView(LoginRequiredMixin, CreateView):
         # 我慢度が入力されていれば我慢スコアを自動計算
         endurance = form.cleaned_data.get("endurance")
         if endurance:
-            form.instance.endurance_score = calc_endurance_score(
+            # nonExpense のスコア用フィールドは self_control_score（endurance_score は未定義）。
+            # 旧コードは存在しない属性に代入していたため、新規登録時にスコアが DB へ保存されなかった。
+            form.instance.self_control_score = calc_endurance_score(
                 amount=form.cleaned_data["amount"],
                 endurance=endurance,
                 category=form.cleaned_data["category"],
