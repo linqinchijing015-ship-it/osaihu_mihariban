@@ -38,9 +38,7 @@
     {# ごほうびバッジ帯：我慢で解放される実績。買った画面では「次のごほうび」を見せて行動を促す #}
     <div class="badge-strip{% if not badges %} empty{% endif %}">
       {% for b in badges %}
-      <span class="b{% if not b.earned %} locked{% endif %}">
-        <span class="ico">{% if b.earned %}{{ b.icon }}{% else %}🔒{% endif %}</span>{{ b.label }}
-      </span>
+      <span class="b {{ b.kind }}"><span class="ico">{{ b.icon }}</span>{{ b.label }}</span>
       {% endfor %}
     </div>
 
@@ -50,23 +48,37 @@
       {# リスト型（1パネルに行を詰める）。1段組み・薄padding・ゼブラで密度最大化 #}
       <div class="list">
         {% for expense in expenses %}
-        <div class="item">
+        {# 行クリックで詳細モーダルを開く。data-* を base.html の JS が読む。kind=buy（ヘッダ橙）/スコアは3段階判定 #}
+        {% with lv=expense.regret_level %}
+        <div class="item"
+             data-kind="buy"
+             data-name="{{ expense.name }}"
+             data-amount="{{ expense.amount|intcomma }}"
+             data-category="{{ expense.get_category_display }}"
+             data-rate="{{ expense.satisfaction|default_if_none:'' }}"
+             data-judge="{% if lv %}{{ lv.icon }} {{ lv.label }}（{{ expense.regret_score|floatformat:0 }}）{% endif %}"
+             data-judge-kind="{% if lv %}{{ lv.key }}{% else %}none{% endif %}"
+             data-date="{{ expense.created_at|date:'Y年n月j日' }}"
+             data-memo="{{ expense.memo }}"
+             data-edit-url="{% url 'expenses:edit' expense.pk %}"
+             data-del-url="{% url 'expenses:delete' expense.pk %}">
           <span class="dot" style="background: {{ expense.category_color }}"></span>
           <span class="name">{{ expense.name }}</span>
           <span class="cat">{{ expense.get_category_display }}</span>
           <span class="date">{{ expense.created_at|date:"n/j" }}</span>
           <span class="amt">{{ expense.amount|intcomma }}円</span>
-          {# 後悔スコア（高いほど赤）。未採点(満足度未入力の旧データ)は「—」で薄く #}
-          {% if expense.regret_score is not None %}
-            <span class="score regret" title="後悔スコア">後悔 {{ expense.regret_score|floatformat:0 }}</span>
+          {# 後悔スコアを3段階で意味づけ（納得/ふつう/後悔ぎみ）。低スコアは「納得」として肯定 #}
+          {% if lv %}
+            <span class="score {{ lv.key }}" title="後悔スコア {{ expense.regret_score|floatformat:0 }}">{{ lv.icon }} {{ lv.label }}</span>
           {% else %}
-            <span class="score none" title="満足度を入れると後悔スコアが付きます">—</span>
+            <span class="score none" title="満足度を入れると判定できます">—</span>
           {% endif %}
           <span class="acts">
             <a href="{% url 'expenses:edit' expense.pk %}">編集</a>
             <a href="{% url 'expenses:delete' expense.pk %}" class="del">削除</a>
           </span>
         </div>
+        {% endwith %}
         {% endfor %}
       </div>
 
@@ -89,22 +101,29 @@
       {% endif %}
     </div>
 
-    {# グラフの下：後悔スコアのサマリ。採点済みが無ければ案内を出す #}
+    {# 総合：節約力スコア（我慢スコア総計 − 後悔スコア総計）。プラスなら我慢が勝っている #}
+    <div class="net-score">
+      <div class="lbl">節約力スコア</div>
+      <div class="num{% if net_score < 0 %} minus{% endif %}">{{ net_score|floatformat:0 }}</div>
+      <div class="cap">我慢で稼いだ点 − 後悔した点</div>
+    </div>
+
+    {# グラフの下：買い物の内訳サマリ。納得できた件数を肯定的に見せ、後悔ぎみだけ注意として並べる #}
     <div class="score-summary">
-      <h2>あなたの後悔スコア</h2>
-      {% if regret_avg is not None %}
+      <h2>あなたの買い物</h2>
+      {% if scored_count %}
         <div class="grid">
-          <div class="cell regret">
-            <div class="lbl">平均</div>
-            <div class="num">{{ regret_avg|floatformat:0 }}</div>
+          <div class="cell ok">
+            <div class="lbl">納得できた</div>
+            <div class="num">{{ ok_count }}<small style="font-size:14px">件</small></div>
           </div>
           <div class="cell regret">
-            <div class="lbl">いちばん後悔</div>
-            <div class="num">{{ regret_worst|floatformat:0 }}</div>
+            <div class="lbl">後悔ぎみ</div>
+            <div class="num">{{ regret_count }}<small style="font-size:14px">件</small></div>
           </div>
         </div>
       {% else %}
-        <p class="empty">満足度を入れて記録すると、<br>ここに後悔スコアが出ます</p>
+        <p class="empty">満足度を入れて記録すると、<br>納得できた買い物がここに出ます</p>
       {% endif %}
     </div>
   </div>

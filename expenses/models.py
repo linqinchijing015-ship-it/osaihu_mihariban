@@ -74,6 +74,13 @@ class Expense(models.Model):
         # カード左のドット用。未知カテゴリは灰
         return CATEGORY_COLORS.get(self.category, "#9ca3af")
 
+    @property
+    def regret_level(self):
+        # 後悔スコアの3段階分類（納得/ふつう/後悔ぎみ）。テンプレでバッジ出し分けに使う。
+        # import をトップに置くと循環参照しないが、用途が限定的なので局所 import にする。
+        from .scoring import regret_level
+        return regret_level(self.regret_score)
+
 
 # 追加: 我慢した物を表すモデル
 class nonExpense(models.Model):

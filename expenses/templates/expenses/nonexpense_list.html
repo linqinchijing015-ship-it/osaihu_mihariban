@@ -38,9 +38,7 @@
     {# ごほうびバッジ帯：我慢が主役のこの画面では実績の中心。獲得済み {{ earned_count }} 個 #}
     <div class="badge-strip{% if not badges %} empty{% endif %}">
       {% for b in badges %}
-      <span class="b{% if not b.earned %} locked{% endif %}">
-        <span class="ico">{% if b.earned %}{{ b.icon }}{% else %}🔒{% endif %}</span>{{ b.label }}
-      </span>
+      <span class="b {{ b.kind }}"><span class="ico">{{ b.icon }}</span>{{ b.label }}</span>
       {% endfor %}
     </div>
 
@@ -50,7 +48,19 @@
       {# リスト型（1パネルに行を詰める）。1段組み・薄padding・ゼブラで密度最大化 #}
       <div class="list">
         {% for item in nonexpenses %}
-        <div class="item">
+        {# 行クリックで詳細モーダルを開く。kind=save（ヘッダ金）/スコアは我慢スコア（高いほど称賛＝橙＝reward） #}
+        <div class="item"
+             data-kind="save"
+             data-name="{{ item.name }}"
+             data-amount="{{ item.amount|intcomma }}"
+             data-category="{{ item.get_category_display }}"
+             data-rate="{{ item.endurance|default_if_none:'' }}"
+             data-judge="{% if item.self_control_score is not None %}+{{ item.self_control_score|floatformat:0 }} 点{% endif %}"
+             data-judge-kind="{% if item.self_control_score is not None %}reward{% else %}none{% endif %}"
+             data-date="{{ item.created_at|date:'Y年n月j日' }}"
+             data-memo="{{ item.memo }}"
+             data-edit-url="{% url 'expenses:non_edit' item.pk %}"
+             data-del-url="{% url 'expenses:non_delete' item.pk %}">
           <span class="dot" style="background: {{ item.category_color }}"></span>
           <span class="name">{{ item.name }}</span>
           <span class="cat">{{ item.get_category_display }}</span>
@@ -87,6 +97,13 @@
       {% else %}
         <p class="graph-empty">記録が増えると、ここに内訳の円グラフが出ます</p>
       {% endif %}
+    </div>
+
+    {# 総合：節約力スコア（我慢スコア総計 − 後悔スコア総計）。プラスなら我慢が勝っている #}
+    <div class="net-score">
+      <div class="lbl">節約力スコア</div>
+      <div class="num{% if net_score < 0 %} minus{% endif %}">{{ net_score|floatformat:0 }}</div>
+      <div class="cap">我慢で稼いだ点 − 後悔した点</div>
     </div>
 
     {# グラフの下：我慢スコアのサマリ。採点済みが無ければ案内を出す #}

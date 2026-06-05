@@ -234,8 +234,10 @@
     /* リスト行のスコアバッジ（金額の隣に小さく） */
     .item .score { flex: none; font-size: 11px; font-weight: 800; padding: 2px 8px;
       border-radius: 999px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
-    .item .score.regret { background: var(--regret-soft); color: var(--regret); }   /* 後悔＝注意の赤 */
+    .item .score.regret { background: var(--regret-soft); color: var(--regret); }   /* 後悔ぎみ＝注意の赤 */
     .item .score.reward { background: var(--reward-soft); color: var(--reward); }   /* 我慢＝称賛の橙 */
+    .item .score.ok { background: #dcfce7; color: #15803d; }        /* 納得＝肯定の緑 */
+    .item .score.normal { background: #f1ede7; color: var(--ink-mid); }  /* ふつう＝中立のグレー */
     .item .score.none { background: #f5f0ea; color: var(--ink-soft); font-weight: 600; }  /* 未採点(旧データ) */
 
     /*
@@ -249,23 +251,48 @@
     .score-summary .cell { flex: 1; text-align: center; padding: 12px 8px; border-radius: var(--r-md);
       background: var(--brand-soft); }
     .score-summary .cell.reward { background: var(--reward-soft); }
+    .score-summary .cell.ok { background: #dcfce7; }
     .score-summary .cell .lbl { font-size: 11px; font-weight: 600; color: var(--ink-mid);
       letter-spacing: .02em; }
     .score-summary .cell .num { font-size: 30px; font-weight: 800; letter-spacing: -.02em;
       line-height: 1.1; margin-top: 2px; font-variant-numeric: tabular-nums; }
     .score-summary .cell.regret .num { color: var(--regret); }
     .score-summary .cell.reward .num { color: var(--reward); }
+    .score-summary .cell.ok .num { color: #15803d; }
     .score-summary .empty { color: var(--ink-soft); font-size: 12.5px; text-align: center;
       padding: 8px 0; line-height: 1.6; }
 
-    /* 獲得バッジ帯：ヒーロー下に丸ピルで並べる。未獲得は薄くロックして「次の目標」を見せる */
+    /*
+      節約力スコア：我慢スコア総計 − 後悔スコア総計 の総合指標。
+      スコアサマリの先頭に大きく出す「今の総合点」。プラスは称賛色、マイナスは注意色。
+    */
+    .net-score { background: var(--card); border-radius: var(--r-lg); padding: 16px 18px;
+      box-shadow: var(--shadow-sm); margin-top: 16px; text-align: center; }
+    .net-score .lbl { font-size: 12px; font-weight: 700; color: var(--ink-mid);
+      letter-spacing: .03em; }
+    .net-score .num { font-size: 40px; font-weight: 800; letter-spacing: -.02em;
+      line-height: 1.05; margin: 4px 0 2px; font-variant-numeric: tabular-nums; color: var(--reward); }
+    .net-score .num.minus { color: var(--regret); }
+    .net-score .cap { font-size: 11.5px; color: var(--ink-soft); }
+
+    /*
+      獲得バッジ帯：ヒーロー下に丸ピルで並べる。達成済みのみ表示する方針。
+      2系統を見分けられるよう色分けする:
+      ・STOCK（積み上げ＝記録）：一度取ったら残る「実績」。落ち着いたゴールド地で
+        「貯まった勲章」感を出す（=塗りピル）。
+      ・STATE（状態連動＝今点いている）：条件を外れると消える「今の状態」。鮮やかな
+        オレンジ枠＋淡い地で「現在アクティブ」感を出す（=枠ピル）。
+    */
     .badge-strip { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;
       margin: -4px 0 16px; }
     .badge-strip .b { font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
-      background: #fff; border: 1px solid var(--line); color: var(--reward);
-      box-shadow: var(--shadow-sm); display: inline-flex; align-items: center; gap: 4px; }
-    .badge-strip .b.locked { color: var(--ink-soft); background: #fbf6f0; border-style: dashed;
-      box-shadow: none; opacity: .85; }
+      display: inline-flex; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); }
+    /* STOCK＝積み上げの勲章：ゴールド地に白文字で「貯めた感」 */
+    .badge-strip .b.stock { background: var(--save); border: 1px solid var(--save); color: #fff;
+      box-shadow: 0 3px 9px rgba(245,158,11,.26); }
+    /* STATE＝今アクティブ：オレンジ枠＋淡地で「いま点いている」を示す */
+    .badge-strip .b.state { background: var(--reward-soft); border: 1.5px solid var(--reward);
+      color: var(--reward); }
     .badge-strip .b .ico { font-size: 12px; line-height: 1; }
     .badge-strip.empty { display: none; }
 
@@ -343,6 +370,64 @@
     .auth-foot { text-align: center; margin-top: 18px; font-size: 13px; color: var(--ink-mid); }
     .auth-foot a { color: var(--brand); text-decoration: none; font-weight: 600; }
     .auth-foot a:hover { text-decoration: underline; }
+
+    /*
+      ===== 詳細モーダル =====
+      リスト行クリックで開く詳細ビュー。ページ遷移なし（その場で開閉）なので
+      一覧のスクロール位置・スマホの「枠内スクロール」設計を壊さない。
+      Bootstrap の modal は使わず、トークン準拠の自前モーダルにして世界観を統一する。
+      行は <button>/<a> でなく <div class="item"> なので、JS が data-* を読んで開く。
+    */
+    .item { cursor: pointer; }                 /* 行全体がクリック可能だと分かるように */
+    .item .acts a { position: relative; z-index: 2; }  /* 編集/削除は行クリックより優先 */
+
+    .modal-back { position: fixed; inset: 0; background: rgba(67,20,7,.42);
+      display: none; align-items: center; justify-content: center; padding: 18px; z-index: 1000;
+      -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+    .modal-back.show { display: flex; }
+    .modal-card { width: 100%; max-width: 380px; background: var(--card);
+      border-radius: var(--r-lg); box-shadow: var(--shadow-md); overflow: hidden;
+      animation: modalpop .16s ease-out; }
+    @keyframes modalpop { from { transform: translateY(8px) scale(.98); opacity: 0; }
+      to { transform: none; opacity: 1; } }
+    /* ヘッダ：品名＋閉じる。買った=オレンジ / 我慢=ゴールド の帯で文脈を示す */
+    .modal-card .m-head { padding: 16px 18px; color: #fff; display: flex; align-items: center;
+      gap: 10px; }
+    .modal-card .m-head.buy { background: var(--brand); }
+    .modal-card .m-head.save { background: var(--save); }
+    .modal-card .m-head .m-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 800;
+      letter-spacing: .01em; word-break: break-word; }
+    .modal-card .m-head .m-close { flex: none; background: rgba(255,255,255,.2); border: none;
+      color: #fff; width: 28px; height: 28px; border-radius: 999px; font-size: 16px;
+      line-height: 1; cursor: pointer; transition: .15s; }
+    .modal-card .m-head .m-close:hover { background: rgba(255,255,255,.34); }
+    /* 本体：ラベル/値の行を縦に並べる。スコアと3段階判定は大きく見せる */
+    .modal-card .m-body { padding: 14px 18px 18px; }
+    .modal-card .m-row { display: flex; align-items: baseline; gap: 12px;
+      padding: 9px 0; border-bottom: 1px solid var(--line); }
+    .modal-card .m-row:last-child { border-bottom: none; }
+    .modal-card .m-row .m-k { flex: none; width: 78px; font-size: 12px; font-weight: 600;
+      color: var(--ink-soft); letter-spacing: .02em; }
+    .modal-card .m-row .m-v { flex: 1; min-width: 0; font-size: 14px; font-weight: 600;
+      color: var(--ink); font-variant-numeric: tabular-nums; word-break: break-word; }
+    .modal-card .m-row .m-v.memo { font-weight: 500; white-space: pre-wrap; line-height: 1.6; }
+    .modal-card .m-row .m-v.empty { color: var(--ink-soft); font-weight: 500; }
+    /* 後悔3段階／我慢スコアのバッジ（リスト行と同じトーン） */
+    .modal-card .m-judge { font-size: 12px; font-weight: 800; padding: 3px 10px;
+      border-radius: 999px; }
+    .modal-card .m-judge.ok { background: #dcfce7; color: #15803d; }
+    .modal-card .m-judge.normal { background: #f1ede7; color: var(--ink-mid); }
+    .modal-card .m-judge.regret { background: var(--regret-soft); color: var(--regret); }
+    .modal-card .m-judge.reward { background: var(--reward-soft); color: var(--reward); }
+    .modal-card .m-judge.none { background: #f5f0ea; color: var(--ink-soft); font-weight: 600; }
+    /* フッタ：編集/削除への導線（モーダルからも操作できるように） */
+    .modal-card .m-foot { display: flex; gap: 10px; padding: 0 18px 18px; }
+    .modal-card .m-foot a { flex: 1; text-align: center; padding: 10px; border-radius: var(--r-md);
+      font-size: 14px; font-weight: 700; text-decoration: none; transition: .15s; }
+    .modal-card .m-foot .m-edit { background: var(--brand-soft); color: var(--brand); }
+    .modal-card .m-foot .m-edit:hover { filter: brightness(.97); }
+    .modal-card .m-foot .m-del { background: #fee2e2; color: var(--regret); }
+    .modal-card .m-foot .m-del:hover { filter: brightness(.97); }
   </style>
 </head>
 <body>
@@ -390,6 +475,103 @@
 
   <!-- Chart.js CDN（カテゴリ別円グラフの描画に使う・ビルド不要） -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  {# 詳細モーダル（共通）：買った／我慢どちらの一覧からも使う1枚。行(.item)の data-* を JS が読んで開く。遷移しないのでスクロール位置は保たれる #}
+  <div class="modal-back" id="detailModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <div class="m-head" id="mHead">
+        <span class="m-title" id="mTitle"></span>
+        <button type="button" class="m-close" id="mClose" aria-label="閉じる">×</button>
+      </div>
+      <div class="m-body">
+        <div class="m-row"><span class="m-k">金額</span><span class="m-v" id="mAmount"></span></div>
+        <div class="m-row"><span class="m-k">カテゴリ</span><span class="m-v" id="mCategory"></span></div>
+        {# 満足度（買った）／我慢度（我慢）。ラベルは行ごとに切り替える #}
+        <div class="m-row"><span class="m-k" id="mRateK"></span><span class="m-v" id="mRate"></span></div>
+        <div class="m-row"><span class="m-k">スコア</span><span class="m-v"><span class="m-judge" id="mJudge"></span></span></div>
+        <div class="m-row"><span class="m-k">日付</span><span class="m-v" id="mDate"></span></div>
+        <div class="m-row"><span class="m-k">メモ</span><span class="m-v memo" id="mMemo"></span></div>
+      </div>
+      <div class="m-foot">
+        <a href="#" class="m-edit" id="mEdit">編集する</a>
+        <a href="#" class="m-del" id="mDel">削除する</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 詳細モーダル：リスト行クリックで data-* を読み込んで開く。
+    // 行に編集/削除リンクがある場合、そのクリックは行クリックより優先（z-index）して
+    // モーダルを開かずに遷移させる（リンク自身のデフォルト遷移に任せる）。
+    (function () {
+      var back = document.getElementById("detailModal");
+      if (!back) return;
+      var head = document.getElementById("mHead");
+      var el = {
+        title: document.getElementById("mTitle"),
+        amount: document.getElementById("mAmount"),
+        category: document.getElementById("mCategory"),
+        rateK: document.getElementById("mRateK"),
+        rate: document.getElementById("mRate"),
+        judge: document.getElementById("mJudge"),
+        date: document.getElementById("mDate"),
+        memo: document.getElementById("mMemo"),
+        edit: document.getElementById("mEdit"),
+        del: document.getElementById("mDel"),
+      };
+
+      function setEmpty(node, text) {
+        node.textContent = text;
+        node.classList.add("empty");
+      }
+      function open(item) {
+        var d = item.dataset;
+        // ヘッダ色（買った=buy / 我慢=save）。kind は行が持つ
+        head.className = "m-head " + (d.kind === "save" ? "save" : "buy");
+        el.title.textContent = d.name || "（無題）";
+        el.amount.textContent = (d.amount || "0") + " 円";
+        el.category.textContent = d.category || "—";
+
+        // 満足度（買った）／我慢度（我慢）でラベルと値を切り替える
+        el.rateK.textContent = d.kind === "save" ? "我慢度" : "満足度";
+        if (d.rate) { el.rate.textContent = d.rate + " / 5"; el.rate.classList.remove("empty"); }
+        else { setEmpty(el.rate, "未入力"); }
+
+        // スコア＝3段階判定（買った）／我慢スコア（我慢）。class は data-judge-kind が持つ
+        el.judge.className = "m-judge " + (d.judgeKind || "none");
+        el.judge.textContent = d.judge || "—";
+
+        el.date.textContent = d.date || "—";
+        if (d.memo) { el.memo.textContent = d.memo; el.memo.classList.remove("empty"); }
+        else { setEmpty(el.memo, "（メモなし）"); }
+
+        el.edit.setAttribute("href", d.editUrl || "#");
+        el.del.setAttribute("href", d.delUrl || "#");
+
+        back.classList.add("show");
+        back.setAttribute("aria-hidden", "false");
+      }
+      function close() {
+        back.classList.remove("show");
+        back.setAttribute("aria-hidden", "true");
+      }
+
+      // 行クリックで開く（編集/削除リンクのクリックは除外）
+      document.querySelectorAll(".item").forEach(function (item) {
+        item.addEventListener("click", function (e) {
+          if (e.target.closest(".acts a")) return;  // 編集/削除はそのまま遷移
+          open(item);
+        });
+      });
+
+      // 閉じる：×ボタン / 背景クリック / Esc
+      document.getElementById("mClose").addEventListener("click", close);
+      back.addEventListener("click", function (e) { if (e.target === back) close(); });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && back.classList.contains("show")) close();
+      });
+    })();
+  </script>
 
   {% block extra_js %}{% endblock %}
 </body>
