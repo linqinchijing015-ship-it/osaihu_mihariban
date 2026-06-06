@@ -1,0 +1,54 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}
+  {% if form.instance.pk %}我慢した物を編集{% else %}我慢した物を登録{% endif %} - お財布見張り番
+{% endblock %}
+
+{% block content %}
+<div class="form-wrap">
+  <div class="form-card">
+
+    <h1>🎉 {% if form.instance.pk %}我慢した物を編集{% else %}我慢したものを記録{% endif %}</h1>
+
+    <form method="post" action="">
+      {% csrf_token %}
+
+      <div class="form-row">
+        <label>品名</label>
+        {{ form.name }}
+        {% if form.name.errors %}<div class="text-danger">{{ form.name.errors|striptags }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>金額（円）</label>
+        {{ form.amount }}
+        {% if form.amount.errors %}<div class="text-danger">{{ form.amount.errors|striptags }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>カテゴリ</label>
+        {{ form.category }}
+        {% if form.category.errors %}<div class="text-danger">{{ form.category.errors|striptags }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>我慢度（1=少し我慢 〜 5=完全に我慢）</label>
+        {{ form.endurance }}
+        {% if form.endurance.errors %}<div class="text-danger">{{ form.endurance.errors|striptags }}</div>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <label>メモ（任意）</label>
+        {{ form.memo }}
+        {% if form.memo.errors %}<div class="text-danger">{{ form.memo.errors|striptags }}</div>{% endif %}
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-save save">保存する</button>
+        <a href="{% url 'expenses:non_list' %}" class="btn-cancel">キャンセル</a>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}

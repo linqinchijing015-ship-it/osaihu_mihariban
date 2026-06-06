@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}お財布見張り番{% endblock %}</title>
+
+  <!-- Bootstrap 5 CSS CDN — npm や build pipeline は不要 -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+
+  <!--
+    一覧画面（買ったもの／我慢したもの）のタブ・集計・カードのスタイル。
+    モックA（ui-mock-A-tabs.html）準拠。色は 青=買った / 緑=我慢 で統一。
+  -->
+  <style>
+    /*
+      デザイントークン（共通ルール）：色・角丸・影をここに1組だけ定義し、
+      全要素がこれを参照する。個別にバラバラな値を書かないことで統一感を担保する。
+      トーン＝「ごほうびゲーム（B案）」：暖色のオレンジを主役に、我慢を得点・バッジで
+      ポジティブに称える。我慢の節約はゴールド系で「ごほうび感」を出す。
+    */
+    :root {
+      --bg: #fff7ed;            /* 画面全体の温かいクリーム背景（orange-50） */
+      --card: #ffffff;          /* カード地 */
+      --brand: #f97316;         /* 主役色（買った）オレンジ（orange-500） */
+      --brand-soft: #fff1e3;    /* ブランド橙の極薄（ホバー/アクセント地） */
+      --save: #f59e0b;          /* 我慢のごほうびゴールド（amber-500） */
+      --ink: #431407;           /* 文字 濃（暖色寄りのこげ茶） */
+      --ink-mid: #9a3412;       /* 文字 中（焦がしオレンジ） */
+      --ink-soft: #c2925f;      /* 文字 薄（やわらかいキャラメル） */
+      --line: #fde7cf;          /* 境界線（うすいオレンジ） */
+      --r-lg: 20px;             /* 角丸 大（ヒーロー/カード） */
+      --r-md: 14px;             /* 角丸 中（リスト/ボタン） */
+      --r-sm: 10px;             /* 角丸 小（タブ/小物） */
+      --shadow-sm: 0 1px 3px rgba(124,45,18,.05), 0 4px 12px rgba(124,45,18,.06);
+      --shadow-md: 0 8px 24px rgba(124,45,18,.10);
+      --font: system-ui, "Hiragino Sans", "Yu Gothic", sans-serif;
+      /* ごほうびバッジ・スコアバッジ用 */
+      --regret: #dc2626;        /* 後悔スコア（高いほど赤＝注意） */
+      --regret-soft: #fee2e2;
+      --reward: #ea580c;        /* 我慢スコア・バッジの称賛色 */
+      --reward-soft: #ffedd5;
+    }
+    body { background: var(--bg); color: var(--ink); font-family: var(--font); }
+
+    /*
+      ナビバー：黒(bg-dark)も白も避け、ブランド色(青)の背景＋白文字に。
+      背景(薄い青みグレー)と同化せず境界が明確になり、画面全体の青トーンと統一される。
+      アイコンは絵文字でなくインライン SVG（白の財布）を使う。
+    */
+    .topbar { background: var(--brand);
+      box-shadow: 0 2px 10px rgba(249,115,22,.22); }
+    .topbar .brand { display: flex; align-items: center; gap: 7px;
+      font-weight: 800; font-size: 17px; color: #fff;
+      text-decoration: none; letter-spacing: .01em; }
+    .topbar .brand svg { width: 22px; height: 22px; flex: none; }
+    .topbar .nav-area { display: flex; align-items: center; gap: 14px; }
+    .topbar .nav-area a { color: rgba(255,255,255,.85); text-decoration: none; font-size: 14px; }
+    .topbar .nav-area a:hover { color: #fff; }
+    .topbar .uname { color: rgba(255,255,255,.9); font-size: 14px; }
+    .topbar .logout { background: rgba(255,255,255,.18); color: #fff; border: none;
+      padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: .15s; }
+    .topbar .logout:hover { background: rgba(255,255,255,.3); }
+
+    /*
+      2カラムレイアウト：左=操作（タブ＋集計＋リスト）／右=グラフ。
+      PC は横並び、スマホ（991px以下）は縦積み（左→右の順＝リストの下にグラフ…ではなく、
+      スマホでは「集計の全体像を先に見せる」ため col-graph を col-main の前に出す）。
+    */
+    .layout { max-width: 1040px; margin: 0 auto; display: grid; gap: 24px;
+      grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }
+    .col-graph { position: sticky; top: 16px;
+      /* PC：右カラム（グラフ＋節約力＋サマリ）を画面内に収め、ページ全体スクロールを出さない。
+         左の .list と同じく「画面の残り高さ」に収める。引く内訳: ナビ56+container上下48+余白約16。 */
+      max-height: calc(100vh - 120px); display: flex; flex-direction: column; gap: 16px; }
+    /* グラフカードは余った高さを吸収し、canvas はカード内で縮む（下の固定2枠を優先表示）。
+       極端に潰れて読めなくならないよう最小高さ(タイトル＋ドーナツ＋凡例)を確保する。 */
+    .col-graph .graph-card { flex: 1 1 auto; min-height: 200px; display: flex; flex-direction: column; }
+    .col-graph .graph-card canvas { flex: 1 1 auto; min-height: 0; max-height: 100%; }
+    /* 節約力・サマリは縮めない（数字が読めるよう固定） */
+    .col-graph .net-score, .col-graph .score-summary { flex: none; margin-top: 0; }
+
+    /* スマホ専用要素：PC では隠す（切替タブ／スマホ用の買った我慢タブ）。
+       .seg-mobile は class="seg seg-mobile" なので .seg(display:flex) と詳細度が並ぶ。
+       後勝ち回避のため .seg.seg-mobile（詳細度を1段上げる）で確実に隠す。 */
+    .view-switch { display: none; }
+    .seg.seg-mobile { display: none; }
+
+    @media (max-width: 991px) {
+      /* スマホは1カラム。両方を縦積みにせず、view-switch タブで片方だけ表示する */
+      .layout { grid-template-columns: 1fr; }
+      /* PC用の右カラム高さ制約・flex はスマホでは解除（スマホ側の専用ルールに任せる） */
+      .col-graph { position: static; max-height: none; display: block; }
+      .col-graph .graph-card { min-height: 0; display: block; }
+      .col-graph .net-score, .col-graph .score-summary { margin-top: 16px; }
+
+      /* 買った/我慢タブをスマホでは上部共通エリアに出す（グラフ表示時も残るよう col-main の外） */
+      .seg.seg-mobile { display: flex; }
+      /* 逆に col-main 内の元の seg タブはスマホでは隠す（二重表示を防ぐ） */
+      .col-main > .seg { display: none; }
+
+      /* 記録／グラフ切替タブ */
+      .view-switch { display: flex; background: #ffedd5; border-radius: var(--r-sm);
+        padding: 4px; margin-bottom: 14px; }
+      .view-switch button { flex: 1; text-align: center; padding: 9px 0; border: none;
+        background: none; border-radius: 8px; font-weight: 600; font-size: 14px;
+        color: var(--ink-mid); cursor: pointer; transition: .15s; }
+      .view-switch button.active { background: var(--card); box-shadow: var(--shadow-sm);
+        color: var(--brand); }
+
+      /* JS が付ける状態クラスで表示を出し分ける。既定は「記録」表示 */
+      .layout.show-graph .col-main { display: none; }
+      .layout:not(.show-graph) .col-graph { display: none; }
+
+      /*
+        スマホでもスクロール不要に：上に積まれる固定要素を圧縮し、リストを
+        「画面の残り高さ」に収めて枠内スクロールする（ページ全体はスクロールさせない）。
+
+        圧縮の内訳:
+        ・ヒーロー：padding/数字を縮め 120→約86px
+        ・バッジ帯：折り返しをやめて横スクロール1行に固定（44px）
+        ・container 上下 padding を 48→24px に詰める（.py-4 を打ち消し）
+        引く内訳: ナビ56 + container上下24 + 買った我慢タブ48 + 記録グラフタブ48
+        + ヒーロー86 + バッジ帯40 + 記録ボタン48 + 余白マージン約26 ≒ 376px。
+      */
+      .container.py-4 { padding-top: 12px; padding-bottom: 12px; }
+
+      /* ヒーローをスリム化（高さを稼ぐ） */
+      .hero { padding: 14px 18px 13px; margin-bottom: 12px; }
+      .hero .amount { font-size: 34px; margin: 3px 0 2px; }
+      .hero .amount small { font-size: 16px; }
+
+      /* バッジ帯：折り返さず横スクロール1行に固定（縦に伸びてはみ出すのを防ぐ） */
+      .badge-strip { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start;
+        margin: -2px 0 12px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+      .badge-strip .b { flex: none; }
+
+      /* 記録ボタンも少し詰める */
+      .add-btn { padding: 11px; margin-bottom: 12px; }
+
+      .list { max-height: calc(100vh - 376px); }
+      /*
+        グラフ表示時：カードは画面内に収めるが overflow:hidden で凡例を切らないよう、
+        canvas 側の高さを抑えてカード全体（ドーナツ＋下の凡例）が収まるようにする。
+        グラフタブは seg+view-switch の下なので、引く高さは控えめ（ナビ+タブ群+余白）。
+      */
+      .col-graph .graph-card { overflow: visible; }
+      .col-graph canvas { max-height: calc(100vh - 320px) !important; }
+    }
+
+    /* グラフカード */
+    .graph-card { background: var(--card); border-radius: var(--r-lg); padding: 18px 18px 8px;
+      box-shadow: var(--shadow-sm); }
+    .graph-card h2 { font-size: 14px; font-weight: 700; color: var(--ink); margin: 0 0 10px; }
+    .graph-empty { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 24px 0; }
+
+    /* セグメントタブ：今どっちを見ているか＋切替を兼ねる（中身は2URLへのリンク） */
+    .seg { display: flex; background: #ffedd5; border-radius: var(--r-sm); padding: 4px; margin-bottom: 14px; }
+    .seg a { flex: 1; text-align: center; padding: 9px 0; border-radius: 8px; text-decoration: none;
+      font-weight: 600; font-size: 14px; color: var(--ink-mid); transition: .15s; }
+    .seg a.active { background: var(--card); box-shadow: var(--shadow-sm); }
+    .seg a.active.buy { color: var(--brand); }   /* 買ったもの = オレンジ */
+    .seg a.active.save { color: var(--save); }   /* 我慢したもの = ごほうびゴールド */
+    .seg a .cnt { display: block; font-size: 11px; font-weight: 500; opacity: .7; margin-top: 1px; }
+
+    /*
+      ヒーローカード：このタブの主役（買った=使った額／我慢=浮いた額）を見せる。
+      「スクロール不要」方針でスリム化：絵文字を行内に寄せ・padding/数字を縮小し、
+      高さを抑えてリストの開始位置を上げる。対比サムネは廃止（リストに場所を譲る）。
+    */
+    .hero { border-radius: var(--r-lg); padding: 22px 24px 20px; color: #fff; text-align: center;
+      margin-bottom: 16px; }
+    .hero.buy { background: var(--brand);
+      box-shadow: 0 12px 28px rgba(249,115,22,.26); }
+    .hero.save { background: var(--save);
+      box-shadow: 0 12px 28px rgba(245,158,11,.28); }
+    /* ラベルは控えめに（脇役）：小さく・字間を空け・やや透過。主役の数字を引き立てる */
+    .hero .lbl { font-size: 12px; opacity: .9; letter-spacing: .04em; font-weight: 600; }
+    /* 主役の数字：大きく・締まった字間で「上質な数字」に。weight と size で階層を立てる */
+    .hero .amount { font-size: 44px; font-weight: 800; letter-spacing: -.025em;
+      line-height: 1.0; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+    .hero .amount small { font-size: 20px; font-weight: 700; margin-left: 2px; opacity: .92; }
+    /* 件数＋対比（相手タブの額）を1行に同居させ行数を増やさない。従なので小さく薄く */
+    .hero .sub { font-size: 12px; opacity: .85; margin-top: 2px; letter-spacing: .01em; }
+    .hero .sub b { font-weight: 700; opacity: 1; }
+
+    /* 主アクション（記録ボタン） */
+    .add-btn { display: block; width: 100%; text-align: center; padding: 13px; border-radius: var(--r-md);
+      color: #fff; font-weight: 700; font-size: 15px; text-decoration: none; margin-bottom: 14px;
+      transition: .15s; }
+    .add-btn.buy { background: var(--brand); box-shadow: 0 6px 16px rgba(249,115,22,.26); }
+    .add-btn.save { background: var(--save); box-shadow: 0 6px 16px rgba(245,158,11,.28); }
+    .add-btn:hover { transform: translateY(-1px); filter: brightness(1.04); }
+
+    .section-h { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin: 0 0 6px 4px; }
+
+    /*
+      リスト：カード型（1件ごとに白カード＋10px隙間＋2段組み）をやめ、
+      1枚のパネルに行を詰める「テーブル/リスト型」に変更。
+      ・1段組み（品名とカテゴリを横並び）・上下 padding を薄く・行間の隙間ゼロ
+      ・交互背景（ゼブラ）で区切り、カード枠と余白を捨てて密度を最大化
+      これで1件あたり ~60px → ~40px、隙間10px も消えて表示件数が大きく増える。
+    */
+    /*
+      リスト枠内スクロール：max-height を超えたぶんは枠の中だけスクロールする。
+      ヒーロー・記録ボタン・グラフは枠の外なので画面に固定されたまま動かない
+      ＝件数が何件に増えても「ページ全体はスクロールしない」を実現する。
+
+      高さは「画面の全高(100vh)から、上に積まれる固定要素を引いた残り」にする。
+      引く内訳（おおよそ）: ナビバー56px + container上下padding48px
+      + タブ48px + ヒーロー120px + バッジ帯44px + 記録ボタン52px + 余白マージン約36px ≒ 404px。
+      これで vh 固定だと起きていた「ナビバー分だけページがはみ出す」を解消する。
+      バッジ帯を足したぶん引き算を増やし、ページ全体スクロールが出ないようにする。
+    */
+    .list { background: var(--card); border-radius: var(--r-lg); overflow-y: auto;
+      max-height: calc(100vh - 404px); box-shadow: var(--shadow-sm); }
+    .item { display: flex; align-items: center; gap: 11px; padding: 12px 16px;
+      border-bottom: 1px solid var(--line); transition: background .12s; }
+    .item:last-child { border-bottom: none; }
+    .item:hover { background: var(--brand-soft); }   /* ホバーでブランド色の極薄に */
+    .item .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+    /* 品名＝主役：濃く・やや太く。日付/カテゴリ＝従：小さく薄く引いて主従を立てる */
+    .item .name { flex: 1; min-width: 0; font-weight: 600; color: var(--ink); font-size: 14px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .01em; }
+    .item .cat { font-size: 11px; color: var(--ink-soft); flex: none; }   /* 品名の隣に小さく（従） */
+    .item .date { font-size: 11px; color: var(--ink-soft); flex: none; opacity: .8;  /* いつの記録か */
+      font-variant-numeric: tabular-nums; }
+    /* 金額＝数字の主役：等幅・締まった字間で読みやすく上質に */
+    .item .amt { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
+      white-space: nowrap; font-size: 14px; letter-spacing: -.01em; }
+    .item .acts a { font-size: 12px; color: var(--ink-soft); text-decoration: none; margin-left: 8px; }
+    .item .acts a.del { color: #d99b9b; }
+    .item .acts a:hover { color: var(--brand); }
+    .item .acts a.del:hover { color: #dc2626; }
+    .hint { text-align: center; color: var(--ink-soft); font-size: 13px; margin-top: 8px; }
+
+    /*
+      ===== B案（ごほうびゲーム）専用パーツ =====
+      ・score：リスト各行に出すスコアバッジ。買った=後悔(赤)、我慢=ごほうび(橙)。
+      ・badge-strip：ヒーロー下の獲得バッジ帯。我慢の積み上げを「実績」として称える。
+    */
+    /* リスト行のスコアバッジ（金額の隣に小さく） */
+    .item .score { flex: none; font-size: 11px; font-weight: 800; padding: 2px 8px;
+      border-radius: 999px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+    .item .score.regret { background: var(--regret-soft); color: var(--regret); }   /* 後悔ぎみ＝注意の赤 */
+    .item .score.reward { background: var(--reward-soft); color: var(--reward); }   /* 我慢＝称賛の橙 */
+    .item .score.ok { background: #dcfce7; color: #15803d; }        /* 納得＝肯定の緑 */
+    .item .score.normal { background: #f1ede7; color: var(--ink-mid); }  /* ふつう＝中立のグレー */
+    .item .score.none { background: #f5f0ea; color: var(--ink-soft); font-weight: 600; }  /* 未採点(旧データ) */
+
+    /*
+      スコアサマリ：グラフカードの下に置く。後悔（買った）／我慢（我慢した）の
+      平均・最大を大きな数字で見せる「今のあなたのスコア」パネル。
+    */
+    .score-summary { background: var(--card); border-radius: var(--r-lg); padding: 16px 18px;
+      box-shadow: var(--shadow-sm); margin-top: 16px; }
+    .score-summary h2 { font-size: 14px; font-weight: 700; color: var(--ink); margin: 0 0 12px; }
+    .score-summary .grid { display: flex; gap: 12px; }
+    .score-summary .cell { flex: 1; text-align: center; padding: 12px 8px; border-radius: var(--r-md);
+      background: var(--brand-soft); }
+    .score-summary .cell.reward { background: var(--reward-soft); }
+    .score-summary .cell.ok { background: #dcfce7; }
+    .score-summary .cell .lbl { font-size: 11px; font-weight: 600; color: var(--ink-mid);
+      letter-spacing: .02em; }
+    .score-summary .cell .num { font-size: 30px; font-weight: 800; letter-spacing: -.02em;
+      line-height: 1.1; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .score-summary .cell.regret .num { color: var(--regret); }
+    .score-summary .cell.reward .num { color: var(--reward); }
+    .score-summary .cell.ok .num { color: #15803d; }
+    .score-summary .empty { color: var(--ink-soft); font-size: 12.5px; text-align: center;
+      padding: 8px 0; line-height: 1.6; }
+
+    /*
+      節約力スコア：我慢スコア総計 − 後悔スコア総計 の総合指標。
+      スコアサマリの先頭に大きく出す「今の総合点」。プラスは称賛色、マイナスは注意色。
+    */
+    .net-score { background: var(--card); border-radius: var(--r-lg); padding: 16px 18px;
+      box-shadow: var(--shadow-sm); margin-top: 16px; text-align: center; }
+    .net-score .lbl { font-size: 12px; font-weight: 700; color: var(--ink-mid);
+      letter-spacing: .03em; }
+    .net-score .num { font-size: 40px; font-weight: 800; letter-spacing: -.02em;
+      line-height: 1.05; margin: 4px 0 2px; font-variant-numeric: tabular-nums; color: var(--reward); }
+    .net-score .num.minus { color: var(--regret); }
+    .net-score .cap { font-size: 11.5px; color: var(--ink-soft); }
+
+    /*
+      獲得バッジ帯：ヒーロー下に丸ピルで並べる。達成済みのみ表示する方針。
+      2系統を見分けられるよう色分けする:
+      ・STOCK（積み上げ＝記録）：一度取ったら残る「実績」。落ち着いたゴールド地で
+        「貯まった勲章」感を出す（=塗りピル）。
+      ・STATE（状態連動＝今点いている）：条件を外れると消える「今の状態」。鮮やかな
+        オレンジ枠＋淡い地で「現在アクティブ」感を出す（=枠ピル）。
+    */
+    .badge-strip { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;
+      margin: -4px 0 16px; }
+    .badge-strip .b { font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+      display: inline-flex; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); }
+    /* STOCK＝積み上げの勲章：ゴールド地に白文字で「貯めた感」 */
+    .badge-strip .b.stock { background: var(--save); border: 1px solid var(--save); color: #fff;
+      box-shadow: 0 3px 9px rgba(245,158,11,.26); }
+    /* STATE＝今アクティブ：オレンジ枠＋淡地で「いま点いている」を示す */
+    .badge-strip .b.state { background: var(--reward-soft); border: 1.5px solid var(--reward);
+      color: var(--reward); }
+    .badge-strip .b .ico { font-size: 12px; line-height: 1; }
+    .badge-strip.empty { display: none; }
+
+    /*
+      登録／編集フォーム：Bootstrap 素のフォーム（既定ボタン・素の input）をやめ、
+      デザイントークン準拠のカードに整える。auth カードと同じ世界観で統一する。
+      フォーム要素（input/select/textarea）は Django が widget で付ける class に依らず
+      要素セレクタで効かせ、暖色テーマのフォーカスリングを当てる。
+    */
+    .form-wrap { max-width: 460px; margin: 0 auto; }
+    .form-card { background: var(--card); border-radius: var(--r-lg);
+      box-shadow: var(--shadow-md); padding: 28px 26px; }
+    .form-card h1 { font-size: 19px; font-weight: 800; color: var(--ink); margin: 0 0 20px;
+      display: flex; align-items: center; gap: 8px; }
+    .form-row { margin-bottom: 16px; }
+    .form-row label, .form-row .form-label { display: block; font-size: 12px; font-weight: 600;
+      color: var(--ink-mid); margin-bottom: 6px; letter-spacing: .02em; }
+    /* Django widget が吐く input/select/textarea を要素単位で整える（Bootstrap class より後で勝つ） */
+    .form-card input, .form-card select, .form-card textarea {
+      width: 100%; padding: 11px 13px; font-size: 15px; font-family: var(--font);
+      border: 1.5px solid var(--line); border-radius: var(--r-md);
+      background: #fffbf7; color: var(--ink); transition: .15s; outline: none; }
+    .form-card input:focus, .form-card select:focus, .form-card textarea:focus {
+      border-color: var(--brand); background: #fff; box-shadow: 0 0 0 3px rgba(249,115,22,.14); }
+    .form-card textarea { resize: vertical; min-height: 64px; }
+    .form-card .text-danger, .form-card .err { font-size: 12px; color: #b91c1c; margin-top: 5px; }
+    /* アクション行：保存（主役・塗り）＋キャンセル（控えめ・枠線） */
+    .form-actions { display: flex; gap: 10px; margin-top: 22px; }
+    .form-actions .btn-save { flex: 1; padding: 12px; border: none; border-radius: var(--r-md);
+      background: var(--brand); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
+      box-shadow: 0 6px 16px rgba(249,115,22,.26); transition: .15s; text-align: center;
+      text-decoration: none; }
+    .form-actions .btn-save.save { background: var(--save); box-shadow: 0 6px 16px rgba(245,158,11,.28); }
+    .form-actions .btn-save:hover { transform: translateY(-1px); filter: brightness(1.04); }
+    .form-actions .btn-cancel { padding: 12px 18px; border-radius: var(--r-md);
+      border: 1.5px solid var(--line); background: #fff; color: var(--ink-mid);
+      font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; transition: .15s; }
+    .form-actions .btn-cancel:hover { background: var(--brand-soft); color: var(--brand); }
+
+    /*
+      認証画面（ログイン／新規登録）共通：中央に浮かぶカードにまとめ、本文と同じ
+      デザイントークンで統一する。Bootstrap 素フォームの「余白だけ多い」状態の解消。
+    */
+    .auth-wrap { min-height: calc(100vh - 56px - 48px); display: flex;
+      align-items: center; justify-content: center; }
+    .auth-card { width: 100%; max-width: 380px; background: var(--card);
+      border-radius: var(--r-lg); box-shadow: var(--shadow-md); padding: 32px 30px; }
+    .auth-brand { text-align: center; margin-bottom: 24px; }
+    .auth-brand .badge-ico { width: 54px; height: 54px; border-radius: 16px;
+      background: var(--brand);
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 20px rgba(249,115,22,.30); margin-bottom: 12px; }
+    .auth-brand .badge-ico svg { width: 28px; height: 28px; color: #fff; }
+    .auth-brand h1 { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0; }
+    .auth-brand p { font-size: 13px; color: var(--ink-mid); margin: 4px 0 0; }
+    .auth-field { margin-bottom: 16px; }
+    .auth-field label { display: block; font-size: 12px; font-weight: 600;
+      color: var(--ink-mid); margin-bottom: 6px; letter-spacing: .02em; }
+    /* input は直書きと、Django フォームが吐く input 両方に効くよう要素セレクタで指定 */
+    .auth-field input { width: 100%; padding: 12px 14px; font-size: 15px;
+      border: 1.5px solid var(--line); border-radius: var(--r-md);
+      background: #fffbf7; color: var(--ink); transition: .15s; outline: none; }
+    .auth-field input:focus { border-color: var(--brand); background: #fff;
+      box-shadow: 0 0 0 3px rgba(249,115,22,.14); }
+    .auth-field input::placeholder { color: var(--ink-soft); }
+    .auth-field .help { font-size: 11px; color: var(--ink-soft); margin-top: 5px; line-height: 1.5; }
+    .auth-field .err { font-size: 12px; color: #b91c1c; margin-top: 5px; }
+    .auth-submit { width: 100%; padding: 13px; border: none; border-radius: var(--r-md);
+      background: var(--brand); color: #fff; font-weight: 700; font-size: 15px;
+      cursor: pointer; box-shadow: 0 6px 16px rgba(249,115,22,.26); transition: .15s; }
+    .auth-submit:hover { transform: translateY(-1px); filter: brightness(1.04); }
+    .auth-error { background: #fef2f2; color: #b91c1c; border-radius: var(--r-md);
+      padding: 10px 14px; font-size: 13px; margin-bottom: 16px; }
+    .auth-foot { text-align: center; margin-top: 18px; font-size: 13px; color: var(--ink-mid); }
+    .auth-foot a { color: var(--brand); text-decoration: none; font-weight: 600; }
+    .auth-foot a:hover { text-decoration: underline; }
+
+    /*
+      ===== 詳細モーダル =====
+      リスト行クリックで開く詳細ビュー。ページ遷移なし（その場で開閉）なので
+      一覧のスクロール位置・スマホの「枠内スクロール」設計を壊さない。
+      Bootstrap の modal は使わず、トークン準拠の自前モーダルにして世界観を統一する。
+      行は <button>/<a> でなく <div class="item"> なので、JS が data-* を読んで開く。
+    */
+    .item { cursor: pointer; }                 /* 行全体がクリック可能だと分かるように */
+    .item .acts a { position: relative; z-index: 2; }  /* 編集/削除は行クリックより優先 */
+
+    .modal-back { position: fixed; inset: 0; background: rgba(67,20,7,.42);
+      display: none; align-items: center; justify-content: center; padding: 18px; z-index: 1000;
+      -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+    .modal-back.show { display: flex; }
+    .modal-card { width: 100%; max-width: 380px; background: var(--card);
+      border-radius: var(--r-lg); box-shadow: var(--shadow-md); overflow: hidden;
+      animation: modalpop .16s ease-out; }
+    @keyframes modalpop { from { transform: translateY(8px) scale(.98); opacity: 0; }
+      to { transform: none; opacity: 1; } }
+    /* ヘッダ：品名＋閉じる。買った=オレンジ / 我慢=ゴールド の帯で文脈を示す */
+    .modal-card .m-head { padding: 16px 18px; color: #fff; display: flex; align-items: center;
+      gap: 10px; }
+    .modal-card .m-head.buy { background: var(--brand); }
+    .modal-card .m-head.save { background: var(--save); }
+    .modal-card .m-head .m-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 800;
+      letter-spacing: .01em; word-break: break-word; }
+    .modal-card .m-head .m-close { flex: none; background: rgba(255,255,255,.2); border: none;
+      color: #fff; width: 28px; height: 28px; border-radius: 999px; font-size: 16px;
+      line-height: 1; cursor: pointer; transition: .15s; }
+    .modal-card .m-head .m-close:hover { background: rgba(255,255,255,.34); }
+    /* 本体：ラベル/値の行を縦に並べる。スコアと3段階判定は大きく見せる */
+    .modal-card .m-body { padding: 14px 18px 18px; }
+    .modal-card .m-row { display: flex; align-items: baseline; gap: 12px;
+      padding: 9px 0; border-bottom: 1px solid var(--line); }
+    .modal-card .m-row:last-child { border-bottom: none; }
+    .modal-card .m-row .m-k { flex: none; width: 78px; font-size: 12px; font-weight: 600;
+      color: var(--ink-soft); letter-spacing: .02em; }
+    .modal-card .m-row .m-v { flex: 1; min-width: 0; font-size: 14px; font-weight: 600;
+      color: var(--ink); font-variant-numeric: tabular-nums; word-break: break-word; }
+    .modal-card .m-row .m-v.memo { font-weight: 500; white-space: pre-wrap; line-height: 1.6; }
+    .modal-card .m-row .m-v.empty { color: var(--ink-soft); font-weight: 500; }
+    /* 後悔3段階／我慢スコアのバッジ（リスト行と同じトーン） */
+    .modal-card .m-judge { font-size: 12px; font-weight: 800; padding: 3px 10px;
+      border-radius: 999px; }
+    .modal-card .m-judge.ok { background: #dcfce7; color: #15803d; }
+    .modal-card .m-judge.normal { background: #f1ede7; color: var(--ink-mid); }
+    .modal-card .m-judge.regret { background: var(--regret-soft); color: var(--regret); }
+    .modal-card .m-judge.reward { background: var(--reward-soft); color: var(--reward); }
+    .modal-card .m-judge.none { background: #f5f0ea; color: var(--ink-soft); font-weight: 600; }
+    /* フッタ：編集/削除への導線（モーダルからも操作できるように） */
+    .modal-card .m-foot { display: flex; gap: 10px; padding: 0 18px 18px; }
+    .modal-card .m-foot a { flex: 1; text-align: center; padding: 10px; border-radius: var(--r-md);
+      font-size: 14px; font-weight: 700; text-decoration: none; transition: .15s; }
+    .modal-card .m-foot .m-edit { background: var(--brand-soft); color: var(--brand); }
+    .modal-card .m-foot .m-edit:hover { filter: brightness(.97); }
+    .modal-card .m-foot .m-del { background: #fee2e2; color: var(--regret); }
+    .modal-card .m-foot .m-del:hover { filter: brightness(.97); }
+  </style>
+</head>
+<body>
+
+  <!--
+    ナビバー：黒(bg-dark)をやめ、白地＋下境界線の .topbar に統一（トークン参照）。
+    本文の柔らかいトーンと地続きにして、画面全体の統一感を出す。
+  -->
+  <nav class="topbar">
+    <div class="container d-flex align-items-center" style="height: 56px;">
+      <a class="brand" href="{% url 'expenses:list' %}">
+        {# 財布アイコン（インラインSVG・外部依存なし・currentColorで白文字に追従） #}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4.5A1.5 1.5 0 0 1 3 17.5z"/>
+          <path d="M3 8.5V7a2 2 0 0 1 2-2h11"/>
+          <circle cx="16.5" cy="12.5" r="1.3" fill="currentColor" stroke="none"/>
+        </svg>
+        お財布見張り番
+      </a>
+
+      <div class="nav-area ms-auto">
+        <a href="/admin/">管理画面</a>
+        {% if user.is_authenticated %}
+          <span class="uname">{{ user.username }} さん</span>
+          {# ログアウト：Django 5 で LogoutView は POST 専用なので form 送信 #}
+          <form method="post" action="{% url 'logout' %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="logout">ログアウト</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <!-- メインコンテンツ領域 -->
+  <div class="container py-4">
+    {% block content %}{% endblock %}
+  </div>
+
+  <!-- Bootstrap 5 JS bundle CDN（ドロップダウン等のインタラクションに使う） -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+  ></script>
+
+  <!-- Chart.js CDN（カテゴリ別円グラフの描画に使う・ビルド不要） -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  {# 詳細モーダル（共通）：買った／我慢どちらの一覧からも使う1枚。行(.item)の data-* を JS が読んで開く。遷移しないのでスクロール位置は保たれる #}
+  <div class="modal-back" id="detailModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <div class="m-head" id="mHead">
+        <span class="m-title" id="mTitle"></span>
+        <button type="button" class="m-close" id="mClose" aria-label="閉じる">×</button>
+      </div>
+      <div class="m-body">
+        <div class="m-row"><span class="m-k">金額</span><span class="m-v" id="mAmount"></span></div>
+        <div class="m-row"><span class="m-k">カテゴリ</span><span class="m-v" id="mCategory"></span></div>
+        {# 満足度（買った）／我慢度（我慢）。ラベルは行ごとに切り替える #}
+        <div class="m-row"><span class="m-k" id="mRateK"></span><span class="m-v" id="mRate"></span></div>
+        <div class="m-row"><span class="m-k">スコア</span><span class="m-v"><span class="m-judge" id="mJudge"></span></span></div>
+        <div class="m-row"><span class="m-k">日付</span><span class="m-v" id="mDate"></span></div>
+        <div class="m-row"><span class="m-k">メモ</span><span class="m-v memo" id="mMemo"></span></div>
+      </div>
+      <div class="m-foot">
+        <a href="#" class="m-edit" id="mEdit">編集する</a>
+        <a href="#" class="m-del" id="mDel">削除する</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 詳細モーダル：リスト行クリックで data-* を読み込んで開く。
+    // 行に編集/削除リンクがある場合、そのクリックは行クリックより優先（z-index）して
+    // モーダルを開かずに遷移させる（リンク自身のデフォルト遷移に任せる）。
+    (function () {
+      var back = document.getElementById("detailModal");
+      if (!back) return;
+      var head = document.getElementById("mHead");
+      var el = {
+        title: document.getElementById("mTitle"),
+        amount: document.getElementById("mAmount"),
+        category: document.getElementById("mCategory"),
+        rateK: document.getElementById("mRateK"),
+        rate: document.getElementById("mRate"),
+        judge: document.getElementById("mJudge"),
+        date: document.getElementById("mDate"),
+        memo: document.getElementById("mMemo"),
+        edit: document.getElementById("mEdit"),
+        del: document.getElementById("mDel"),
+      };
+
+      function setEmpty(node, text) {
+        node.textContent = text;
+        node.classList.add("empty");
+      }
+      function open(item) {
+        var d = item.dataset;
+        // ヘッダ色（買った=buy / 我慢=save）。kind は行が持つ
+        head.className = "m-head " + (d.kind === "save" ? "save" : "buy");
+        el.title.textContent = d.name || "（無題）";
+        el.amount.textContent = (d.amount || "0") + " 円";
+        el.category.textContent = d.category || "—";
+
+        // 満足度（買った）／我慢度（我慢）でラベルと値を切り替える
+        el.rateK.textContent = d.kind === "save" ? "我慢度" : "満足度";
+        if (d.rate) { el.rate.textContent = d.rate + " / 5"; el.rate.classList.remove("empty"); }
+        else { setEmpty(el.rate, "未入力"); }
+
+        // スコア＝3段階判定（買った）／我慢スコア（我慢）。class は data-judge-kind が持つ
+        el.judge.className = "m-judge " + (d.judgeKind || "none");
+        el.judge.textContent = d.judge || "—";
+
+        el.date.textContent = d.date || "—";
+        if (d.memo) { el.memo.textContent = d.memo; el.memo.classList.remove("empty"); }
+        else { setEmpty(el.memo, "（メモなし）"); }
+
+        el.edit.setAttribute("href", d.editUrl || "#");
+        el.del.setAttribute("href", d.delUrl || "#");
+
+        back.classList.add("show");
+        back.setAttribute("aria-hidden", "false");
+      }
+      function close() {
+        back.classList.remove("show");
+        back.setAttribute("aria-hidden", "true");
+      }
+
+      // 行クリックで開く（編集/削除リンクのクリックは除外）
+      document.querySelectorAll(".item").forEach(function (item) {
+        item.addEventListener("click", function (e) {
+          if (e.target.closest(".acts a")) return;  // 編集/削除はそのまま遷移
+          open(item);
+        });
+      });
+
+      // 閉じる：×ボタン / 背景クリック / Esc
+      document.getElementById("mClose").addEventListener("click", close);
+      back.addEventListener("click", function (e) { if (e.target === back) close(); });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && back.classList.contains("show")) close();
+      });
+    })();
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
